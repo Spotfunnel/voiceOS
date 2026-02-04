@@ -3,7 +3,7 @@ Audio pipeline: STT → LLM → TTS
 
 Streaming frame-based pipeline using Pipecat architecture.
 - STT: Deepgram (primary for Australian accent)
-- LLM: OpenAI GPT-4o
+- LLM: Multi-provider (Gemini 2.5 Flash primary, GPT-4.1 fallback)
 - TTS: ElevenLabs or Cartesia
 
 Architecture compliance:
@@ -17,10 +17,10 @@ from typing import Optional
 
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.services.deepgram import DeepgramSTTService
-from pipecat.services.openai import OpenAILLMService
 from pipecat.services.elevenlabs import ElevenLabsTTSService
 
 from ..events.event_emitter import EventEmitter
+from ..llm.multi_provider_llm import MultiProviderLLM
 from .frame_observer import PipelineFrameObserver
 
 
@@ -72,19 +72,14 @@ class AudioPipeline:
             channels=1,
         )
     
-    def _create_llm_service(self) -> OpenAILLMService:
-        """Create OpenAI LLM service (GPT-4o)"""
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY must be set in environment")
+    def _create_llm_service(self) -> MultiProviderLLM:
+        """
+        Create multi-provider LLM service with fallback.
         
-        model = os.getenv("OPENAI_MODEL", "gpt-4o")
-        
-        return OpenAILLMService(
-            api_key=api_key,
-            model=model,
-            system_prompt=self.system_prompt,
-        )
+        Primary: Gemini 2.5 Flash (94.9% pass rate, ~700ms TTFT, $0.010-$0.015/min)
+        Fallback: GPT-4.1 (94.9% pass rate, ~700ms TTFT, $0.015-$0.020/min)
+        """
+        return MultiProviderLLM.from_env()
     
     def _create_tts_service(self) -> ElevenLabsTTSService:
         """Create ElevenLabs TTS service"""
@@ -121,7 +116,7 @@ class AudioPipeline:
             transport_input,           # Audio input (Daily.co)
             self.stt,                 # Speech-to-text (Deepgram)
             self.frame_observer,      # Observe frames for event emission
-            self.llm,                 # Language model (OpenAI GPT-4o)
+            self.llm,                 # Language model (multi-provider: Gemini/GPT-4.1)
             self.frame_observer,      # Observe LLM output frames
             self.tts,                 # Text-to-speech (ElevenLabs)
             transport_output,         # Audio output (Daily.co)

@@ -9,7 +9,7 @@ Key design principles:
 
 Architecture:
 - STT: Deepgram (optimized for Australian accent)
-- LLM: OpenAI GPT-4o
+- LLM: Multi-provider (Gemini 2.5 Flash primary, GPT-4.1 fallback)
 - TTS: Multi-provider (Cartesia primary, ElevenLabs fallback)
 
 Latency target: <500ms P50 end-to-end
@@ -23,9 +23,9 @@ from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineTask
 from pipecat.services.deepgram import DeepgramSTTService
-from pipecat.services.openai import OpenAILLMService
 
 from ..events.event_emitter import EventEmitter
+from ..llm.multi_provider_llm import MultiProviderLLM
 from ..tts.multi_provider_tts import MultiProviderTTS
 from .frame_observer import PipelineFrameObserver
 
@@ -50,6 +50,7 @@ class VoicePipeline:
         event_emitter: Optional[EventEmitter] = None,
         system_prompt: str = "You are a helpful AI assistant for SpotFunnel.",
         use_multi_provider_tts: bool = True,
+        use_multi_provider_llm: bool = True,
     ):
         """
         Initialize voice pipeline.
@@ -58,10 +59,12 @@ class VoicePipeline:
             event_emitter: Event emitter for pipeline events
             system_prompt: System prompt for LLM (immutable)
             use_multi_provider_tts: Use multi-provider TTS with fallback (default: True)
+            use_multi_provider_llm: Use multi-provider LLM with fallback (default: True)
         """
         self.event_emitter = event_emitter
         self.system_prompt = system_prompt
         self.use_multi_provider_tts = use_multi_provider_tts
+        self.use_multi_provider_llm = use_multi_provider_llm
         
         # Initialize services
         self.stt = self._create_stt_service()
@@ -93,17 +96,7 @@ class VoicePipeline:
     
     def _create_llm_service(self) -> OpenAILLMService:
         """Create OpenAI LLM service (GPT-4o)"""
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY must be set in environment")
-        
-        model = os.getenv("OPENAI_MODEL", "gpt-4o")
-        
-        return OpenAILLMService(
-            api_key=api_key,
-            model=model,
-            system_prompt=self.system_prompt,
-        )
+        return MultiProviderLLM.from_env()
     
     def _create_tts_service(self):
         """
@@ -144,7 +137,7 @@ class VoicePipeline:
             transport_input,              # Audio input (Daily.co or Twilio)
             self.stt,                    # Speech-to-text (Deepgram)
             self.frame_observer,         # Observe STT frames for event emission
-            self.llm,                    # Language model (OpenAI GPT-4o)
+            self.llm,                    # Language model (multi-provider: Gemini/GPT-4.1)
             self.frame_observer,         # Observe LLM output frames
             self.tts,                    # Text-to-speech (multi-provider)
             transport_output,            # Audio output (Daily.co or Twilio)
@@ -164,11 +157,24 @@ class VoicePipeline:
             return self.tts.get_provider_stats()
         return {}
     
+    def get_llm_stats(self) -> dict:
+        """
+        Get LLM provider usage statistics.
+        
+        Returns:
+            Dict with provider usage, costs, circuit breaker status
+        """
+        if self.use_multi_provider_llm and isinstance(self.llm, MultiProviderLLM):
+            return self.llm.get_provider_stats()
+        return {}
+    
     def reset_circuit_breakers(self):
         """Reset all circuit breakers (for testing/manual intervention)"""
         if self.use_multi_provider_tts and isinstance(self.tts, MultiProviderTTS):
             self.tts.reset_circuit_breakers()
-            logger.info("All circuit breakers reset")
+        if self.use_multi_provider_llm and isinstance(self.llm, MultiProviderLLM):
+            self.llm.reset_circuit_breakers()
+        logger.info("All circuit breakers reset")
 
 
 def build_voice_pipeline(

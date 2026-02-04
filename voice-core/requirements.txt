@@ -4,7 +4,9 @@
 # Pipecat - Frame-based voice AI framework with telephony integrations
 # Day 2: Added Daily, Twilio, Deepgram, OpenAI, Cartesia, ElevenLabs support
 # Phase 1.4: Added AssemblyAI for multi-ASR voting
-pipecat-ai[daily,twilio,deepgram,openai,cartesia,elevenlabs,assemblyai,silero]==0.0.46
+# Phase 6: Added Silero for VAD
+# Gemini swap: Added Google for Gemini 2.5 Flash LLM
+pipecat-ai[daily,twilio,deepgram,openai,cartesia,elevenlabs,assemblyai,silero,google]==0.0.46
 
 # Provider SDKs - let Pipecat manage the versions via extras
 # deepgram-sdk, openai, etc. are installed via pipecat-ai[deepgram,openai,...]
