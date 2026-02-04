@@ -1,18 +1,13 @@
-"""
-API Clients for External Services
+"""API routers for Voice Core."""
 
-Provides API clients for:
-- Australia Post (address validation)
-"""
-
-from .australia_post import (
-    AustraliaPostClient,
-    AddressValidationResult,
-    SuburbLookupResult,
-)
+from .dashboard import router as dashboard_router
+from .onboarding import router as onboarding_router
+from .tenant_config import router as tenant_config_router
+from .twilio_webhook import router as twilio_router
 
 __all__ = [
-    "AustraliaPostClient",
-    "AddressValidationResult",
-    "SuburbLookupResult",
+    "dashboard_router",
+    "onboarding_router",
+    "tenant_config_router",
+    "twilio_router",
 ]

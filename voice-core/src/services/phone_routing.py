@@ -81,13 +81,12 @@ def _load_tenant_config(tenant_id: str) -> Optional[Dict[str, Any]]:
             cur.execute(
                 """
                 SELECT
-                    objective_graph,
-                    locale,
-                    voice_id,
-                    service_catalog,
-                    faq_knowledge_base
-                FROM tenant_config
-                WHERE tenant_id = %s
+                    oc.objective_graph,
+                    t.locale,
+                    t.metadata
+                FROM tenants t
+                JOIN objective_configs oc ON t.tenant_id = oc.tenant_id
+                WHERE t.tenant_id = %s AND oc.active = true
                 """,
                 (tenant_id,),
             )
@@ -96,17 +95,13 @@ def _load_tenant_config(tenant_id: str) -> Optional[Dict[str, Any]]:
                 logger.warning("Tenant config not found for %s", tenant_id)
                 return None
 
+            metadata = _deserialize_json_field(row.get("metadata")) or {}
             return {
                 "tenant_id": tenant_id,
                 "objective_graph": _deserialize_json_field(row.get("objective_graph")),
                 "locale": row.get("locale") or "en-AU",
-                "voice_id": row.get("voice_id"),
-                "service_catalog": _deserialize_json_field(
-                    row.get("service_catalog")
-                ),
-                "faq_knowledge_base": _deserialize_json_field(
-                    row.get("faq_knowledge_base")
-                ),
+                "service_catalog": metadata.get("service_catalog", []),
+                "faq_knowledge_base": metadata.get("faq_knowledge_base", []),
             }
     except Exception as exc:
         logger.exception("Failed to load tenant config: %s", exc)

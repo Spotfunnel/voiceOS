@@ -68,15 +68,15 @@ def load_template(template_id: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def _to_tenant_config(tenant_row, config_row) -> TenantConfig:
+def _to_tenant_config(tenant_row, config_row, template_data) -> TenantConfig:
     return TenantConfig(
         tenant_id=tenant_row["tenant_id"],
         business_name=tenant_row["business_name"],
         phone_number=tenant_row["phone_number"],
-        locale=config_row["locale"],
-        objective_graph=json.loads(config_row["objective_graph"]),
-        service_catalog=config_row.get("service_catalog") or [],
-        faq_knowledge_base=config_row.get("faq_knowledge_base") or [],
+        locale=tenant_row.get("locale", "en-AU"),
+        objective_graph=json.loads(config_row["objective_graph"]) if isinstance(config_row["objective_graph"], str) else config_row["objective_graph"],
+        service_catalog=template_data.get("service_catalog", []),
+        faq_knowledge_base=template_data.get("faq_knowledge_base", []),
         created_at=tenant_row["created_at"],
     )
 
@@ -86,20 +86,24 @@ async def get_tenant_config(tenant_id: str):
     conn = get_db_connection()
     try:
         tenant = conn.execute(
-            "SELECT tenant_id, business_name, phone_number, created_at FROM tenants WHERE tenant_id = ?",
+            "SELECT tenant_id, business_name, phone_number, locale, created_at FROM tenants WHERE tenant_id = ?",
             (tenant_id,),
         ).fetchone()
         if not tenant:
             raise HTTPException(status_code=404, detail="Tenant not found")
 
         config = conn.execute(
-            "SELECT objective_graph, locale, service_catalog, faq_knowledge_base FROM tenant_configs WHERE tenant_id = ?",
+            "SELECT objective_graph FROM objective_configs WHERE tenant_id = ? AND active = true",
             (tenant_id,),
         ).fetchone()
         if not config:
             raise HTTPException(status_code=404, detail="Tenant config not found")
 
-        return _to_tenant_config(tenant, config)
+        # Load template data for service catalog / FAQ
+        template_data = {}
+        obj_graph = json.loads(config["objective_graph"]) if isinstance(config["objective_graph"], str) else config["objective_graph"]
+        
+        return _to_tenant_config(tenant, config, template_data)
     finally:
         conn.close()
 
@@ -119,15 +123,15 @@ async def create_tenant(request: CreateTenantRequest):
         )
         conn.execute(
             """
-            INSERT INTO tenant_configs (tenant_id, objective_graph, service_catalog, faq_knowledge_base, locale)
+            INSERT INTO objective_configs (tenant_id, version, objective_graph, active, schema_version)
             VALUES (?, ?, ?, ?, ?)
             """,
             (
                 tenant_id,
+                1,
                 json.dumps(template["objective_graph"]),
-                json.dumps(template.get("service_catalog", [])),
-                json.dumps(template.get("faq_knowledge_base", [])),
-                request.locale,
+                True,
+                "v1",
             ),
         )
         conn.commit()
@@ -157,18 +161,30 @@ async def update_tenant_config(tenant_id: str, config: TenantConfig):
         if not tenant:
             raise HTTPException(status_code=404, detail="Tenant not found")
 
+        # Deactivate old config
+        conn.execute(
+            "UPDATE objective_configs SET active = false WHERE tenant_id = ?",
+            (tenant_id,),
+        )
+        
+        # Get next version
+        max_version = conn.execute(
+            "SELECT COALESCE(MAX(version), 0) FROM objective_configs WHERE tenant_id = ?",
+            (tenant_id,),
+        ).fetchone()[0]
+        
+        # Insert new version
         conn.execute(
             """
-            UPDATE tenant_configs
-            SET objective_graph = ?, service_catalog = ?, faq_knowledge_base = ?, locale = ?
-            WHERE tenant_id = ?
+            INSERT INTO objective_configs (tenant_id, version, objective_graph, active, schema_version)
+            VALUES (?, ?, ?, ?, ?)
             """,
             (
-                json.dumps(config.objective_graph),
-                json.dumps([item.dict() for item in config.service_catalog]),
-                json.dumps([item.dict() for item in config.faq_knowledge_base]),
-                config.locale,
                 tenant_id,
+                max_version + 1,
+                json.dumps(config.objective_graph),
+                True,
+                "v1",
             ),
         )
         conn.commit()
