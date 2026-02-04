@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice AI Event Timeline Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+        }
+        
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+        
+        .upload-section {
+            padding: 2rem;
+            text-align: center;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .upload-box {
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            padding: 2rem;
+            background: #f8f9ff;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .upload-box:hover {
+            background: #f0f2ff;
+            border-color: #764ba2;
+        }
+        
+        .upload-box input {
+            display: none;
+        }
+        
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        
+        .timeline {
+            padding: 2rem;
+        }
+        
+        .timeline-item {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+        
+        .timeline-item:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            left: 1.5rem;
+            top: 3rem;
+            width: 2px;
+            height: calc(100% + 2rem);
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+            opacity: 0.3;
+        }
+        
+        .timeline-marker {
+            flex-shrink: 0;
+            width: 3rem;
+            height: 3rem;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .timeline-content {
+            flex: 1;
+            background: #f8f9ff;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .event-type {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        
+        .event-timestamp {
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 1rem;
+        }
+        
+        .event-data {
+            background: white;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            color: #333;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        
+        .event-metadata {
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid #e0e0e0;
+            font-size: 0.85rem;
+            color: #666;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            padding: 2rem;
+            background: #f8f9ff;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #666;
+        }
+        
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.3;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+        }
+        
+        .badge-success {
+            background: #10b981;
+            color: white;
+        }
+        
+        .badge-error {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .badge-info {
+            background: #3b82f6;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Voice AI Event Timeline Viewer</h1>
+            <p>Upload the terminal output from demo_call.py to visualize the event sequence</p>
+        </div>
+        
+        <div class="upload-section">
+            <label for="file-upload" class="upload-box">
+                <div class="upload-icon">📁</div>
+                <h3>Drop terminal output here or click to upload</h3>
+                <p style="margin-top: 0.5rem; color: #666;">Paste the "EVENT SUMMARY" section from the demo output</p>
+                <input type="file" id="file-upload" accept=".txt,.log">
+            </label>
+            <div style="margin-top: 1rem;">
+                <textarea id="paste-area" placeholder="Or paste the event output here..." style="width: 100%; height: 150px; padding: 1rem; border: 2px solid #e0e0e0; border-radius: 8px; font-family: monospace; font-size: 0.9rem;"></textarea>
+                <button onclick="parseEvents()" style="margin-top: 1rem; padding: 0.75rem 2rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">Parse Events</button>
+            </div>
+        </div>
+        
+        <div id="stats" class="stats" style="display: none;"></div>
+        
+        <div id="timeline" class="timeline">
+            <div class="empty-state">
+                <div class="empty-state-icon">⏱️</div>
+                <h3>No events loaded yet</h3>
+                <p>Upload or paste the demo output to see the event timeline</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let events = [];
+        
+        document.getElementById('file-upload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('paste-area').value = e.target.result;
+                    parseEvents();
+                };
+                reader.readAsText(file);
+            }
+        });
+        
+        function parseEvents() {
+            const text = document.getElementById('paste-area').value;
+            events = [];
+            
+            // Parse event lines (format: "1. event_type (timestamp)")
+            const lines = text.split('\n');
+            let inEventSection = false;
+            
+            for (let line of lines) {
+                line = line.trim();
+                
+                // Start of event section
+                if (line.includes('EVENT SUMMARY') || line.includes('Event Summary')) {
+                    inEventSection = true;
+                    continue;
+                }
+                
+                // Parse event line
+                if (inEventSection && line.match(/^\d+\./)) {
+                    const match = line.match(/^\d+\.\s+(\w+)\s+\(([^)]+)\)/);
+                    if (match) {
+                        events.push({
+                            type: match[1],
+                            timestamp: match[2],
+                            data: null
+                        });
+                    }
+                }
+                
+                // Also try to extract data lines
+                if (line.startsWith('Data:') || line.includes('trace_id') || line.includes('conversation_id')) {
+                    if (events.length > 0) {
+                        events[events.length - 1].data = line.replace('Data:', '').trim();
+                    }
+                }
+            }
+            
+            // If no events found, try alternative parsing
+            if (events.length === 0) {
+                const eventPattern = /(\w+):\s*(\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2})/g;
+                let match;
+                while ((match = eventPattern.exec(text)) !== null) {
+                    events.push({
+                        type: match[1],
+                        timestamp: match[2],
+                        data: null
+                    });
+                }
+            }
+            
+            renderTimeline();
+            renderStats();
+        }
+        
+        function renderTimeline() {
+            const timeline = document.getElementById('timeline');
+            
+            if (events.length === 0) {
+                timeline.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⏱️</div>
+                        <h3>No events found</h3>
+                        <p>Make sure to paste the complete event output from the demo</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            timeline.innerHTML = events.map((event, index) => {
+                const badge = getEventBadge(event.type);
+                const icon = getEventIcon(event.type);
+                
+                return `
+                    <div class="timeline-item">
+                        <div class="timeline-marker">${icon}</div>
+                        <div class="timeline-content">
+                            <div class="event-type">
+                                ${event.type}
+                                ${badge}
+                            </div>
+                            <div class="event-timestamp">🕐 ${event.timestamp}</div>
+                            ${event.data ? `<div class="event-data">${event.data}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function renderStats() {
+            const stats = document.getElementById('stats');
+            
+            if (events.length === 0) {
+                stats.style.display = 'none';
+                return;
+            }
+            
+            stats.style.display = 'grid';
+            
+            const totalEvents = events.length;
+            const completedObjectives = events.filter(e => e.type === 'objective_completed').length;
+            const failedObjectives = events.filter(e => e.type === 'objective_failed').length;
+            const callDuration = calculateDuration();
+            
+            stats.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${totalEvents}</div>
+                    <div class="stat-label">Total Events</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${completedObjectives}</div>
+                    <div class="stat-label">Completed Objectives</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${failedObjectives}</div>
+                    <div class="stat-label">Failed Objectives</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${callDuration}</div>
+                    <div class="stat-label">Call Duration</div>
+                </div>
+            `;
+        }
+        
+        function calculateDuration() {
+            if (events.length < 2) return 'N/A';
+            
+            const start = new Date(events[0].timestamp);
+            const end = new Date(events[events.length - 1].timestamp);
+            const diff = (end - start) / 1000; // seconds
+            
+            if (diff < 60) return `${Math.round(diff)}s`;
+            return `${Math.floor(diff / 60)}m ${Math.round(diff % 60)}s`;
+        }
+        
+        function getEventBadge(type) {
+            if (type.includes('completed')) return '<span class="badge badge-success">✓ Success</span>';
+            if (type.includes('failed')) return '<span class="badge badge-error">✗ Failed</span>';
+            if (type.includes('started')) return '<span class="badge badge-info">→ Started</span>';
+            return '';
+        }
+        
+        function getEventIcon(type) {
+            const icons = {
+                'call_started': '📞',
+                'call_ended': '📴',
+                'objective_started': '🎯',
+                'objective_completed': '✅',
+                'objective_failed': '❌',
+                'objective_captured': '📝',
+                'user_spoke': '🗣️',
+                'agent_spoke': '🤖',
+                'transcription': '📄',
+                'error': '⚠️'
+            };
+            
+            for (let key in icons) {
+                if (type.includes(key)) return icons[key];
+            }
+            
+            return '📌';
+        }
+    </script>
+</body>
+</html>

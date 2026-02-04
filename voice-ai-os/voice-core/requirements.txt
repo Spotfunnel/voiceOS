@@ -1,0 +1,44 @@
+# Voice Core (Layer 1) Dependencies
+# Python 3.10+ required
+
+# Pipecat - Frame-based voice AI framework
+pipecat-ai[daily,deepgram,openai,cartesia]==0.0.46
+
+# Core dependencies
+python-dotenv==1.0.1
+aiohttp==3.9.1
+asyncio==3.4.3
+
+# STT Services
+deepgram-sdk==3.2.7
+assemblyai==0.24.0
+
+# LLM Services  
+openai==1.12.0
+anthropic==0.18.1
+
+# TTS Services
+elevenlabs==0.2.26
+cartesia==1.0.4
+
+# Telephony
+daily-python==0.10.1
+
+# Audio Processing
+numpy==1.26.3
+scipy==1.12.0
+
+# Validation & Utilities
+phonenumbers==8.13.27  # Australian phone validation
+email-validator==2.1.0
+python-dateutil==2.8.2
+httpx==0.25.0  # For Australia Post API
+circuitbreaker==1.4.0  # For provider fallbacks
+
+# Testing
+pytest==8.0.0
+pytest-asyncio==0.23.4
+pytest-mock==3.12.0
+
+# Observability
+structlog==24.1.0

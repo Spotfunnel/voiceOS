@@ -1,0 +1,55 @@
+{
+  "name": "@spotfunnel/voice-ai-orchestration",
+  "version": "0.1.0",
+  "description": "Layer 2: Orchestration Service for SpotFunnel Voice AI Platform",
+  "main": "dist/main.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "lint": "eslint src --ext .ts",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "keywords": [
+    "voice-ai",
+    "orchestration",
+    "event-sourcing",
+    "layer-2"
+  ],
+  "author": "SpotFunnel",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "fastify": "^5.2.0",
+    "@fastify/swagger": "^9.3.0",
+    "@fastify/swagger-ui": "^5.2.0",
+    "pg": "^8.13.1",
+    "zod": "^3.24.1",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.1.0",
+    "js-yaml": "^4.1.0",
+    "yaml": "^2.5.1",
+    "uuid": "^11.1.0",
+    "@grpc/grpc-js": "^1.12.0",
+    "@grpc/proto-loader": "^0.7.15"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "@types/express": "^4.17.21",
+    "@types/pg": "^8.11.10",
+    "typescript": "^5.7.3",
+    "tsx": "^4.19.2",
+    "@typescript-eslint/eslint-plugin": "^8.20.0",
+    "@typescript-eslint/parser": "^8.20.0",
+    "eslint": "^9.19.0",
+    "vitest": "^2.1.8",
+    "@vitest/coverage-v8": "^2.1.8"
+  }
+}

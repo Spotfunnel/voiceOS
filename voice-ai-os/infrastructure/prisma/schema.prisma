@@ -1,0 +1,168 @@
+// SpotFunnel Voice AI Platform - Prisma Schema
+// V1 Schema (Event-Sourced Architecture)
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/@prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// TENANTS
+// =============================================================================
+
+model Tenant {
+  id            String          @id @default(uuid()) @db.Uuid
+  name          String          @db.VarChar(255)
+  locale        String          @default("en-AU") @db.VarChar(10)
+  configVersion String?         @map("config_version") @db.VarChar(50)
+  phoneNumber   String?         @map("phone_number") @db.VarChar(50)
+  status        TenantStatus    @default(active)
+  metadata      Json            @default("{}")
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  configurations Configuration[]
+  calls          Call[]
+  events         Event[]
+  phoneRouting   PhoneRouting[]
+
+  @@index([phoneNumber])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("tenants")
+}
+
+enum TenantStatus {
+  active
+  inactive
+  suspended
+}
+
+// =============================================================================
+// CONFIGURATIONS
+// =============================================================================
+
+model Configuration {
+  id            String              @id @default(uuid()) @db.Uuid
+  tenantId      String              @map("tenant_id") @db.Uuid
+  version       String              @db.VarChar(50)
+  objectives    Json                // Objective graph (JSONB)
+  locale        String              @default("en-AU") @db.VarChar(10)
+  schemaVersion String              @default("v1") @map("schema_version") @db.VarChar(10)
+  status        ConfigurationStatus @default(draft)
+  createdBy     String?             @map("created_by") @db.VarChar(255)
+  notes         String?             @db.Text
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  calls  Call[]
+
+  @@unique([tenantId, version])
+  @@index([tenantId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("configs")
+}
+
+enum ConfigurationStatus {
+  draft
+  active
+  archived
+}
+
+// =============================================================================
+// CALLS
+// =============================================================================
+
+model Call {
+  id                 String       @id @default(uuid()) @db.Uuid
+  tenantId           String       @map("tenant_id") @db.Uuid
+  configId           String?      @map("config_id") @db.Uuid
+  conversationId     String       @map("conversation_id") @db.Uuid
+  phoneNumber        String?      @map("phone_number") @db.VarChar(50)
+  direction          CallDirection?
+  startedAt          DateTime?    @map("started_at") @db.Timestamptz(6)
+  endedAt            DateTime?    @map("ended_at") @db.Timestamptz(6)
+  durationSeconds    Int?         @map("duration_seconds")
+  status             CallStatus?
+  terminationReason  String?      @map("termination_reason") @db.VarChar(100)
+  recordingUrl       String?      @map("recording_url") @db.Text
+  costUsd            Decimal?     @map("cost_usd") @db.Decimal(10, 4)
+  summary            Json?
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  configuration Configuration? @relation(fields: [configId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([conversationId])
+  @@index([startedAt(sort: Desc)])
+  @@index([status])
+  @@index([phoneNumber])
+  @@map("calls")
+}
+
+enum CallDirection {
+  inbound
+  outbound
+}
+
+enum CallStatus {
+  initiated
+  ringing
+  in_progress
+  completed
+  failed
+  no_answer
+}
+
+// =============================================================================
+// EVENTS (Append-Only Event Stream)
+// =============================================================================
+
+model Event {
+  id             String   @id @default(uuid()) @db.Uuid
+  eventId        String   @unique @map("event_id") @db.Uuid // Unique event identifier
+  conversationId String   @map("conversation_id") @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  objectiveId    String?  @map("objective_id") @db.VarChar(100) // Optional objective reference
+  eventType      String   @map("event_type") @db.VarChar(100)
+  eventVersion   String   @default("v1") @map("event_version") @db.VarChar(10)
+  data           Json
+  metadata       Json     @default("{}")
+  timestamp      DateTime @default(now()) @db.Timestamptz(6)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  sequenceNumber Int      @default(autoincrement()) @map("sequence_number")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, timestamp(sort: Desc)])
+  @@index([tenantId])
+  @@index([eventType])
+  @@index([timestamp(sort: Desc)])
+  @@index([conversationId, sequenceNumber])
+  @@index([objectiveId])
+  @@map("events")
+}
+
+// =============================================================================
+// PHONE ROUTING
+// =============================================================================
+// Maps phone numbers to tenants for multi-tenant routing
+
+model PhoneRouting {
+  phoneNumber String   @id @map("phone_number") @db.VarChar(50)
+  tenantId    String   @map("tenant_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("phone_routing")
+}

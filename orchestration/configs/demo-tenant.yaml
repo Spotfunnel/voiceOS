@@ -1,0 +1,33 @@
+# Demo Tenant Configuration
+# 
+# Single objective: capture_email_au
+# Australian validation rules
+# Success: save to database
+
+tenant_id: demo-tenant
+tenant_name: Demo Tenant
+locale: en-AU
+schema_version: v1
+
+# Objective graph (single objective for demo)
+objectives:
+  # Objective: Capture email for demo
+  - id: capture_email
+    type: capture_email_au
+    version: v1
+    purpose: demo_email_capture
+    required: true
+    max_retries: 3
+    on_success: end_call  # End conversation after email captured
+    on_failure: end_call   # End conversation even on failure (demo)
+    escalation: none       # No escalation for demo
+
+# Workflow webhook URL (optional for demo)
+# workflow_webhook_url: https://example.com/webhook/voice-ai
+
+# Metadata
+metadata:
+  created_at: 2026-02-03T10:00:00Z
+  updated_at: 2026-02-03T10:00:00Z
+  created_by: demo@spotfunnel.com.au
+  description: "Demo configuration for email capture end-to-end test"

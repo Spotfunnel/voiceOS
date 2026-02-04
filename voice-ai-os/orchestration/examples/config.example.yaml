@@ -1,0 +1,58 @@
+# Example Configuration - Layer 2: Orchestration
+# 
+# This is a declarative configuration that defines WHAT to capture,
+# not HOW to capture it (that's Layer 1's responsibility).
+#
+# Following R-ARCH-003: Objectives MUST Be Declarative (Not Imperative)
+# Day 1 Example: Email → Phone → Address capture flow
+
+tenant_id: acme_plumbing
+tenant_name: Acme Plumbing Services
+locale: en-AU
+schema_version: v1
+
+# Objective graph (DAG - Directed Acyclic Graph)
+# D-ARCH-005: Objective Graph is Directed Acyclic Graph
+# 
+# Flow: capture_email → capture_phone → capture_address → end_call
+objectives:
+  # Objective 1: Capture email for appointment confirmation
+  - id: capture_email
+    type: capture_email_au
+    version: v1  # Optional: specify primitive version
+    purpose: appointment_confirmation
+    required: true
+    max_retries: 3
+    on_success: capture_phone  # Next objective on success
+    on_failure: escalate_to_human  # Next objective on failure
+    escalation: transfer  # Escalate to human if max retries exceeded
+
+  # Objective 2: Capture phone for callback
+  - id: capture_phone
+    type: capture_phone_au
+    purpose: callback
+    required: true
+    max_retries: 3
+    on_success: capture_address  # Next objective: capture address
+    on_failure: escalate_to_human
+    escalation: transfer
+
+  # Objective 3: Capture address for service location
+  - id: capture_address
+    type: capture_address_au
+    purpose: service_location
+    required: true
+    max_retries: 3
+    on_success: end_call  # End conversation after address captured
+    escalation: transfer
+
+# Workflow webhook URL (Layer 3 integration)
+# R-ARCH-004: Workflows MUST Be Asynchronous to Conversation
+# Workflows receive events (objective_completed) and execute business logic
+workflow_webhook_url: https://customer-n8n-instance.com/webhook/voice-ai
+
+# Metadata (optional)
+metadata:
+  created_at: 2026-02-03T10:00:00Z
+  updated_at: 2026-02-03T10:00:00Z
+  created_by: admin@acmeplumbing.com.au

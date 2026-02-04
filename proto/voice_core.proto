@@ -1,0 +1,139 @@
+syntax = "proto3";
+
+package voice_core;
+
+option python_package = "voice_core.grpc";
+option go_package = "github.com/spotfunnel/voice-core/grpc";
+
+// Voice Core gRPC Service
+// Layer 1: Immutable voice AI primitives
+service VoiceCoreService {
+  // Execute a primitive (e.g., capture_email_au)
+  rpc ExecutePrimitive(ExecutePrimitiveRequest) returns (ExecutePrimitiveResponse);
+  
+  // Stream events from primitive execution (server-side streaming)
+  rpc StreamEvents(StreamEventsRequest) returns (stream Event);
+  
+  // Health check endpoint
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// Execute primitive request
+message ExecutePrimitiveRequest {
+  // Objective type (e.g., "capture_email_au")
+  string objective_type = 1;
+  
+  // Parameters for primitive execution
+  map<string, string> params = 2;
+  
+  // Conversation ID for correlation
+  string conversation_id = 3;
+  
+  // Trace ID propagated from orchestration (for observability)
+  string trace_id = 4;
+  
+  // Purpose/context for the primitive (for LLM)
+  string purpose = 5;
+  
+  // Optional metadata
+  map<string, string> metadata = 6;
+  
+  // Timeout in seconds (default: 30)
+  int32 timeout_seconds = 7;
+}
+
+// Execute primitive response
+message ExecutePrimitiveResponse {
+  // Success status
+  bool success = 1;
+  
+  // Captured data (if successful)
+  map<string, string> data = 2;
+  
+  // Error information (if failed)
+  Error error = 3;
+  
+  // Execution metadata
+  ExecutionMetadata metadata = 4;
+}
+
+// Error information
+message Error {
+  // Error code (e.g., "VALIDATION_ERROR", "TIMEOUT", "PRIMITIVE_NOT_FOUND")
+  string code = 1;
+  
+  // Human-readable error message
+  string message = 2;
+  
+  // Additional error details (JSON string)
+  string details = 3;
+}
+
+// Execution metadata
+message ExecutionMetadata {
+  // Execution duration in milliseconds
+  int64 duration_ms = 1;
+  
+  // Retry count
+  int32 retry_count = 2;
+  
+  // Confidence score (0.0-1.0)
+  double confidence = 3;
+  
+  // State machine state
+  string state = 4;
+}
+
+// Stream events request
+message StreamEventsRequest {
+  // Conversation ID to stream events for
+  string conversation_id = 1;
+  
+  // Trace ID for correlation
+  string trace_id = 2;
+  
+  // Optional: Filter by event type
+  repeated string event_types = 3;
+}
+
+// Event message (streamed from server)
+message Event {
+  // Event type (e.g., "primitive_started", "user_spoke", "primitive_completed")
+  string event_type = 1;
+  
+  // Timestamp (ISO 8601)
+  string timestamp = 2;
+  
+  // Conversation ID
+  string conversation_id = 3;
+  
+  // Trace ID
+  string trace_id = 4;
+  
+  // Event data (JSON string)
+  string data = 5;
+  
+  // Optional metadata
+  map<string, string> metadata = 6;
+}
+
+// Health check request
+message HealthCheckRequest {
+  // Optional: Service name to check
+  string service = 1;
+}
+
+// Health check response
+message HealthCheckResponse {
+  // Health status
+  enum Status {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+  }
+  
+  Status status = 1;
+  
+  // Optional message
+  string message = 2;
+}

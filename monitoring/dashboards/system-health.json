@@ -1,0 +1,196 @@
+{
+  "dashboard": {
+    "title": "System Health",
+    "tags": ["voice-ai", "health"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Worker Memory Usage",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "SELECT component_id, AVG((metrics->>'memory_percent')::numeric) as memory_percent FROM metrics_health WHERE component = 'worker' AND timestamp >= $__timeFrom() AND timestamp <= $__timeTo() GROUP BY component_id, time_bucket('1 minute', timestamp)",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "percent", "label": "Memory Usage (%)", "max": 100 },
+          { "format": "short" }
+        ],
+        "xaxis": { "mode": "time" },
+        "legend": { "show": true },
+        "thresholds": [
+          {
+            "value": 80,
+            "colorMode": "critical",
+            "op": "gt"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Worker CPU Usage",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "SELECT component_id, AVG((metrics->>'cpu_percent')::numeric) as cpu_percent FROM metrics_health WHERE component = 'worker' AND timestamp >= $__timeFrom() AND timestamp <= $__timeTo() GROUP BY component_id, time_bucket('1 minute', timestamp)",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "percent", "label": "CPU Usage (%)", "max": 100 },
+          { "format": "short" }
+        ],
+        "xaxis": { "mode": "time" },
+        "legend": { "show": true }
+      },
+      {
+        "id": 3,
+        "title": "Active Calls per Worker",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "SELECT component_id, AVG((metrics->>'active_calls')::numeric) as active_calls FROM metrics_health WHERE component = 'worker' AND timestamp >= $__timeFrom() AND timestamp <= $__timeTo() GROUP BY component_id, time_bucket('1 minute', timestamp)",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Active Calls" },
+          { "format": "short" }
+        ],
+        "xaxis": { "mode": "time" },
+        "legend": { "show": true }
+      },
+      {
+        "id": 4,
+        "title": "Circuit Breaker Status",
+        "type": "table",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+        "targets": [
+          {
+            "expr": "SELECT component_id as provider, circuit_state, failure_count, last_failure_at, timestamp FROM metrics_health WHERE component = 'circuit_breaker' AND timestamp >= $__timeFrom() ORDER BY timestamp DESC",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showHeader": true,
+          "sortBy": [{ "desc": true, "displayName": "Timestamp" }]
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "displayMode": "color-background",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "value": null, "color": "green" },
+                  { "value": "closed", "color": "green" },
+                  { "value": "half_open", "color": "yellow" },
+                  { "value": "open", "color": "red" }
+                ]
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Provider Health Status",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 16 },
+        "targets": [
+          {
+            "expr": "SELECT component_id, status FROM metrics_health WHERE component = 'provider' AND timestamp >= NOW() - INTERVAL '5 minutes' GROUP BY component_id, status ORDER BY timestamp DESC LIMIT 1",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": null, "color": "green" },
+                { "value": "healthy", "color": "green" },
+                { "value": "degraded", "color": "yellow" },
+                { "value": "unhealthy", "color": "red" },
+                { "value": "down", "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "Database Connection Pool",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 6, "y": 16 },
+        "targets": [
+          {
+            "expr": "SELECT status FROM metrics_health WHERE component = 'database' AND timestamp >= NOW() - INTERVAL '1 minute' ORDER BY timestamp DESC LIMIT 1",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area"
+        }
+      },
+      {
+        "id": 7,
+        "title": "Redis Cache Hit Rate",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+        "targets": [
+          {
+            "expr": "SELECT AVG((metrics->>'cache_hit_rate')::numeric) as hit_rate FROM metrics_health WHERE component = 'redis' AND timestamp >= $__timeFrom() AND timestamp <= $__timeTo() GROUP BY time_bucket('1 minute', timestamp)",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "percent", "label": "Cache Hit Rate (%)", "max": 100 },
+          { "format": "short" }
+        ],
+        "xaxis": { "mode": "time" },
+        "legend": { "show": true }
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {},
+    "templating": {
+      "list": []
+    },
+    "annotations": {
+      "list": []
+    }
+  }
+}

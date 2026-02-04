@@ -1,0 +1,190 @@
+{
+  "dashboard": {
+    "title": "Call Quality",
+    "tags": ["voice-ai", "quality"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 1,
+    "refresh": "1m",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Call Success Rate",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "SELECT COUNT(*) FILTER (WHERE status = 'success')::float / NULLIF(COUNT(*), 0) * 100 as success_rate FROM metrics_calls WHERE timestamp >= $__timeFrom() AND timestamp <= $__timeTo() GROUP BY time_bucket('5 minutes', timestamp)",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "percent", "label": "Success Rate (%)", "max": 100 },
+          { "format": "short" }
+        ],
+        "xaxis": { "mode": "time" },
+        "legend": { "show": true },
+        "thresholds": [
+          {
+            "value": 95,
+            "colorMode": "critical",
+            "op": "lt"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Total Calls",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "SELECT COUNT(*) as total_calls FROM metrics_calls WHERE timestamp >= $__timeFrom() AND timestamp <= $__timeTo()",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area"
+        }
+      },
+      {
+        "id": 3,
+        "title": "Failed Calls",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+        "targets": [
+          {
+            "expr": "SELECT COUNT(*) as failed_calls FROM metrics_calls WHERE status = 'failed' AND timestamp >= $__timeFrom() AND timestamp <= $__timeTo()",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": null, "color": "green" },
+                { "value": 0, "color": "green" },
+                { "value": 10, "color": "yellow" },
+                { "value": 50, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Failure Reasons",
+        "type": "piechart",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+        "targets": [
+          {
+            "expr": "SELECT failure_reason, COUNT(*) as count FROM metrics_calls WHERE failure_reason IS NOT NULL AND timestamp >= $__timeFrom() AND timestamp <= $__timeTo() GROUP BY failure_reason",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "pieType": "pie",
+          "tooltip": {
+            "mode": "single"
+          },
+          "legend": {
+            "displayMode": "table",
+            "placement": "right"
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Average Call Duration",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "SELECT AVG(call_duration_seconds) as avg_duration FROM metrics_calls WHERE timestamp >= $__timeFrom() AND timestamp <= $__timeTo() GROUP BY time_bucket('5 minutes', timestamp)",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "s", "label": "Duration (seconds)" },
+          { "format": "short" }
+        ],
+        "xaxis": { "mode": "time" },
+        "legend": { "show": true }
+      },
+      {
+        "id": 6,
+        "title": "Average STT Confidence",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+        "targets": [
+          {
+            "expr": "SELECT AVG(avg_confidence) as avg_confidence FROM metrics_calls WHERE avg_confidence IS NOT NULL AND timestamp >= $__timeFrom() AND timestamp <= $__timeTo() GROUP BY time_bucket('5 minutes', timestamp)",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "percentunit", "label": "Confidence", "max": 1 },
+          { "format": "short" }
+        ],
+        "xaxis": { "mode": "time" },
+        "legend": { "show": true },
+        "thresholds": [
+          {
+            "value": 0.7,
+            "colorMode": "critical",
+            "op": "lt"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Interruptions per Call",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+        "targets": [
+          {
+            "expr": "SELECT AVG(interruption_count) as avg_interruptions FROM metrics_calls WHERE interruption_count IS NOT NULL AND timestamp >= $__timeFrom() AND timestamp <= $__timeTo() GROUP BY time_bucket('5 minutes', timestamp)",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Interruptions" },
+          { "format": "short" }
+        ],
+        "xaxis": { "mode": "time" },
+        "legend": { "show": true }
+      }
+    ],
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    },
+    "timepicker": {},
+    "templating": {
+      "list": []
+    },
+    "annotations": {
+      "list": []
+    }
+  }
+}

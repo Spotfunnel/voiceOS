@@ -1,0 +1,134 @@
+{
+  "dashboard": {
+    "title": "Cost Tracking",
+    "tags": ["voice-ai", "cost"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 1,
+    "refresh": "1m",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Cost per Call (Average)",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "SELECT AVG(total_cost_usd) as avg_cost FROM cost_per_call WHERE bucket >= $__timeFrom() AND bucket <= $__timeTo() GROUP BY time_bucket('5 minutes', bucket)",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "currencyUSD", "label": "Cost per Call ($)" },
+          { "format": "short" }
+        ],
+        "xaxis": { "mode": "time" },
+        "legend": { "show": true }
+      },
+      {
+        "id": 2,
+        "title": "Total Cost by Provider",
+        "type": "piechart",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "SELECT provider, SUM(cost_usd) as total_cost FROM metrics_cost WHERE timestamp >= $__timeFrom() AND timestamp <= $__timeTo() GROUP BY provider",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "pieType": "pie",
+          "tooltip": {
+            "mode": "single"
+          },
+          "legend": {
+            "displayMode": "table",
+            "placement": "right"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Cost Breakdown by Service Type",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "SELECT service_type, SUM(cost_usd) as total_cost FROM metrics_cost WHERE timestamp >= $__timeFrom() AND timestamp <= $__timeTo() GROUP BY service_type, time_bucket('5 minutes', timestamp)",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "currencyUSD", "label": "Cost ($)" },
+          { "format": "short" }
+        ],
+        "xaxis": { "mode": "time" },
+        "legend": { "show": true },
+        "bars": true,
+        "stack": true
+      },
+      {
+        "id": 4,
+        "title": "Monthly Cost per Tenant",
+        "type": "table",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+        "targets": [
+          {
+            "expr": "SELECT tenant_id, month, total_cost_usd, call_count, avg_cost_per_call FROM cost_per_tenant_monthly WHERE month >= DATE_TRUNC('month', $__timeFrom()) ORDER BY month DESC, total_cost_usd DESC",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showHeader": true,
+          "sortBy": [{ "desc": true, "displayName": "Total Cost" }]
+        }
+      },
+      {
+        "id": 5,
+        "title": "Cost per Minute (Alert Threshold: $0.20)",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+        "targets": [
+          {
+            "expr": "SELECT AVG(total_cost_usd / NULLIF(call_duration_seconds / 60.0, 0)) as cost_per_minute FROM cost_per_call WHERE bucket >= $__timeFrom() AND bucket <= $__timeTo() GROUP BY time_bucket('5 minutes', bucket)",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "currencyUSD", "label": "Cost per Minute ($)", "max": 0.5 },
+          { "format": "short" }
+        ],
+        "xaxis": { "mode": "time" },
+        "legend": { "show": true },
+        "thresholds": [
+          {
+            "value": 0.20,
+            "colorMode": "critical",
+            "op": "gt"
+          }
+        ]
+      }
+    ],
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    },
+    "timepicker": {},
+    "templating": {
+      "list": []
+    },
+    "annotations": {
+      "list": []
+    }
+  }
+}

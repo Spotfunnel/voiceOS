@@ -1,0 +1,164 @@
+{
+  "dashboard": {
+    "title": "Voice Core Latency",
+    "tags": ["voice-ai", "latency"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "P50/P95/P99 Turn Latency (End-to-End)",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "SELECT percentile_cont(0.50) WITHIN GROUP (ORDER BY latency_ms) as p50, percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms) as p95, percentile_cont(0.99) WITHIN GROUP (ORDER BY latency_ms) as p99 FROM metrics_latency WHERE component = 'turn_e2e' AND timestamp >= $__timeFrom() AND timestamp <= $__timeTo() GROUP BY time_bucket('5 minutes', timestamp)",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "ms", "label": "Latency (ms)" },
+          { "format": "short" }
+        ],
+        "xaxis": { "mode": "time" },
+        "legend": { "show": true, "values": true },
+        "lines": true,
+        "linewidth": 2
+      },
+      {
+        "id": 2,
+        "title": "Component Latency Breakdown",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "SELECT component, percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms) as p95 FROM metrics_latency WHERE timestamp >= $__timeFrom() AND timestamp <= $__timeTo() GROUP BY component, time_bucket('5 minutes', timestamp)",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "ms", "label": "P95 Latency (ms)" },
+          { "format": "short" }
+        ],
+        "xaxis": { "mode": "time" },
+        "legend": { "show": true },
+        "bars": true,
+        "stack": true
+      },
+      {
+        "id": 3,
+        "title": "STT Latency (P50/P95/P99)",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "SELECT percentile_cont(0.50) WITHIN GROUP (ORDER BY latency_ms) as p50, percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms) as p95, percentile_cont(0.99) WITHIN GROUP (ORDER BY latency_ms) as p99 FROM metrics_latency WHERE component = 'stt' AND timestamp >= $__timeFrom() AND timestamp <= $__timeTo() GROUP BY time_bucket('5 minutes', timestamp)",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "ms", "label": "Latency (ms)" },
+          { "format": "short" }
+        ],
+        "xaxis": { "mode": "time" },
+        "legend": { "show": true }
+      },
+      {
+        "id": 4,
+        "title": "LLM TTFT (P50/P95/P99)",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+        "targets": [
+          {
+            "expr": "SELECT percentile_cont(0.50) WITHIN GROUP (ORDER BY latency_ms) as p50, percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms) as p95, percentile_cont(0.99) WITHIN GROUP (ORDER BY latency_ms) as p99 FROM metrics_latency WHERE component = 'llm' AND timestamp >= $__timeFrom() AND timestamp <= $__timeTo() GROUP BY time_bucket('5 minutes', timestamp)",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "ms", "label": "TTFT (ms)" },
+          { "format": "short" }
+        ],
+        "xaxis": { "mode": "time" },
+        "legend": { "show": true }
+      },
+      {
+        "id": 5,
+        "title": "TTS TTFB (P50/P95/P99)",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+        "targets": [
+          {
+            "expr": "SELECT percentile_cont(0.50) WITHIN GROUP (ORDER BY latency_ms) as p50, percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms) as p95, percentile_cont(0.99) WITHIN GROUP (ORDER BY latency_ms) as p99 FROM metrics_latency WHERE component = 'tts' AND timestamp >= $__timeFrom() AND timestamp <= $__timeTo() GROUP BY time_bucket('5 minutes', timestamp)",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "ms", "label": "TTFB (ms)" },
+          { "format": "short" }
+        ],
+        "xaxis": { "mode": "time" },
+        "legend": { "show": true }
+      },
+      {
+        "id": 6,
+        "title": "Latency Alert Status",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 24, "x": 0, "y": 16 },
+        "targets": [
+          {
+            "expr": "SELECT COUNT(*) FROM metrics_latency WHERE component = 'turn_e2e' AND latency_ms > 800 AND timestamp >= NOW() - INTERVAL '5 minutes'",
+            "format": "table",
+            "rawSql": true,
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"],
+            "fields": ""
+          },
+          "textMode": "auto"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 1, "color": "red" }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {},
+    "templating": {
+      "list": []
+    },
+    "annotations": {
+      "list": []
+    }
+  }
+}

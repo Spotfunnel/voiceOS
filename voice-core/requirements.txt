@@ -1,0 +1,34 @@
+# Voice Core (Layer 1) Dependencies
+# Python 3.11+ required
+
+# Pipecat - Frame-based voice AI framework with telephony integrations
+# Day 2: Added Daily, Twilio, Deepgram, OpenAI, Cartesia, ElevenLabs support
+pipecat-ai[daily,twilio,deepgram,openai,cartesia,elevenlabs]==0.0.46
+
+# Provider SDKs - let Pipecat manage the versions via extras
+# deepgram-sdk, openai, etc. are installed via pipecat-ai[deepgram,openai,...]
+# Manual pins removed to avoid dependency conflicts
+
+# HTTP server for bot runner
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+websockets>=12.0
+
+# Core dependencies
+python-dotenv==1.0.1
+aiohttp~=3.10.3
+pytz==2024.1
+pydantic~=2.8.2
+httpx==0.26.0
+python-dateutil==2.9.0  # For date parsing (natural language, DD/MM/YYYY)
+
+# Circuit breaker for TTS fallback
+circuitbreaker==1.4.0
+
+# Database
+psycopg2-binary>=2.9.9
+
+# Testing
+pytest~=7.4.0
+pytest-asyncio==0.23.4
+pytest-mock==3.12.0
