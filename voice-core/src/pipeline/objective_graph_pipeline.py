@@ -10,7 +10,11 @@ from typing import Optional, Dict, Any
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.services.deepgram import DeepgramSTTService
 
-from ..events.event_emitter import EventEmitter
+from ..events.event_emitter import EventEmitter, VoiceCoreEvent
+from ..integrations.n8n_client import (
+    trigger_workflows_for_tenant,
+    workflow_registry,
+)
 from ..orchestration.objective_graph import ObjectiveGraph
 from ..processors.multi_asr_processor import MultiASRProcessor
 from ..pipeline.frame_observer import PipelineFrameObserver
@@ -32,6 +36,28 @@ def _create_stt_service() -> DeepgramSTTService:
     )
 
 
+def _register_n8n_event_listener(
+    event_emitter: Optional[EventEmitter], tenant_config: Dict[str, Any]
+) -> None:
+    workflow_registry.load_from_config(tenant_config)
+
+    if not event_emitter:
+        return
+
+    async def _handle(event: VoiceCoreEvent):
+        if event.event_type != "objective_chain_completed":
+            return
+
+        captured_data = (event.data or {}).get("captured_data", {})
+        tenant_id = tenant_config.get("tenant_id")
+        if not tenant_id or not captured_data:
+            return
+
+        await trigger_workflows_for_tenant(tenant_id, captured_data)
+
+    event_emitter.add_observer(_handle)
+
+
 def build_objective_graph_pipeline(
     tenant_config: Dict[str, Any],
     transport: DailyTransportWrapper,
@@ -48,6 +74,8 @@ def build_objective_graph_pipeline(
     Returns:
         Configured Pipeline instance
     """
+    _register_n8n_event_listener(event_emitter, tenant_config)
+
     graph = ObjectiveGraph(
         graph_config=tenant_config["objective_graph"],
         tenant_context=tenant_config,

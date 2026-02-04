@@ -165,6 +165,36 @@ CREATE INDEX idx_objectives_conversation_id ON objectives(conversation_id);
 CREATE INDEX idx_objectives_state ON objectives(state);
 
 -- =============================================================================
+-- N8N WORKFLOW CONFIGURATIONS
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS n8n_workflows (
+    workflow_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(tenant_id) ON DELETE CASCADE,
+    workflow_name TEXT NOT NULL,
+    webhook_url TEXT NOT NULL,
+    auth_token TEXT,
+    timeout_seconds INTEGER DEFAULT 30,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE INDEX idx_n8n_workflows_tenant ON n8n_workflows(tenant_id);
+
+CREATE TABLE IF NOT EXISTS n8n_workflow_logs (
+    log_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    workflow_id UUID NOT NULL REFERENCES n8n_workflows(workflow_id),
+    tenant_id UUID NOT NULL REFERENCES tenants(tenant_id),
+    call_id UUID,
+    triggered_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    status TEXT NOT NULL,
+    response_data JSONB,
+    error_message TEXT
+);
+
+CREATE INDEX idx_n8n_logs_tenant_time ON n8n_workflow_logs(tenant_id, triggered_at);
+
+-- =============================================================================
 -- VIEWS FOR COMMON QUERIES
 -- =============================================================================
 
