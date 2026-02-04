@@ -64,6 +64,7 @@ class CaptureEmailAU(BaseCaptureObjective):
             objective_type="capture_email_au",
             locale=locale,
             is_critical=True,  # Email is ALWAYS critical
+            requires_multi_asr=True,  # Multi-ASR required for Australian accent
             max_retries=max_retries
         )
     

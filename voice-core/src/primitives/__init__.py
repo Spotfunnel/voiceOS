@@ -11,6 +11,10 @@ from .capture_phone_au import CapturePhoneAU
 from .capture_address_au import CaptureAddressAU
 from .capture_datetime_au import CaptureDatetimeAU
 from .email_capture_processor import EmailCaptureProcessor
+from .multi_primitive_processor import (
+    MultiPrimitiveProcessor,
+    ObjectiveChainCompletedFrame,
+)
 
 __all__ = [
     "BaseCaptureObjective",
@@ -20,4 +24,6 @@ __all__ = [
     "CaptureAddressAU",
     "CaptureDatetimeAU",
     "EmailCaptureProcessor",
+    "MultiPrimitiveProcessor",
+    "ObjectiveChainCompletedFrame",
 ]

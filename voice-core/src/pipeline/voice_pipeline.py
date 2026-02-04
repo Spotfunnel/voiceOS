@@ -75,7 +75,7 @@ class VoicePipeline:
         """
         Create Deepgram STT service (optimized for Australian accent).
         
-        Model: nova-2 (best Australian English support)
+        Model: nova-3 (low latency, real-time optimized for Australian English)
         Sample rate: 16kHz (PCM) for Daily.co, 8kHz (mulaw) for Twilio
         """
         api_key = os.getenv("DEEPGRAM_API_KEY")
@@ -85,7 +85,7 @@ class VoicePipeline:
         # Deepgram model optimized for Australian English
         return DeepgramSTTService(
             api_key=api_key,
-            model="nova-2",  # Latest model with better Australian accent support
+            model="nova-3",  # Latest model optimized for low latency Australian English
             language="en-AU",  # Australian English
             sample_rate=16000,  # Will be auto-converted for Twilio mulaw 8kHz
             channels=1,

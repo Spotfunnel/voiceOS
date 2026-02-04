@@ -68,6 +68,7 @@ class CapturePhoneAU(BaseCaptureObjective):
             objective_type="capture_phone_au",
             locale=locale,
             is_critical=True,  # Phone is ALWAYS critical
+            requires_multi_asr=True,  # Multi-ASR required for Australian accent
             max_retries=max_retries
         )
     

@@ -54,7 +54,7 @@ class EmailCapturePipeline:
 
         return DeepgramSTTService(
             api_key=api_key,
-            model="nova-2",
+            model="nova-3",
             language="en-AU",
             sample_rate=16000,
             channels=1,

@@ -69,6 +69,7 @@ class BaseCaptureObjective(ABC):
         objective_type: str,
         locale: str = "en-AU",
         is_critical: bool = True,
+        requires_multi_asr: bool = False,
         max_retries: int = 3
     ):
         """
@@ -78,11 +79,13 @@ class BaseCaptureObjective(ABC):
             objective_type: Type identifier (e.g., "capture_email_au")
             locale: Locale for validation (default: "en-AU")
             is_critical: If True, ALWAYS confirm (default: True)
+            requires_multi_asr: If True, enable multi-ASR voting (default: False)
             max_retries: Maximum retry attempts (default: 3)
         """
         self.objective_type = objective_type
         self.locale = locale
         self.is_critical = is_critical
+        self.requires_multi_asr = requires_multi_asr
         self.max_retries = max_retries
         
         # State machine for deterministic execution

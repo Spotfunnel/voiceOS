@@ -63,11 +63,11 @@ class AudioPipeline:
         if not api_key:
             raise ValueError("DEEPGRAM_API_KEY must be set in environment")
         
-        # Deepgram model optimized for Australian English
+        # Deepgram Nova-3 model optimized for low-latency Australian English
         return DeepgramSTTService(
             api_key=api_key,
-            model="nova-2",  # Latest model with better Australian accent support
-            language="en-AU",  # Australian English
+            model="nova-3",
+            language="en-AU",
             sample_rate=16000,
             channels=1,
         )
