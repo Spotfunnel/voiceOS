@@ -18,7 +18,7 @@ from typing import Optional, AsyncIterator
 import logging
 
 from pipecat.services.elevenlabs import ElevenLabsTTSService as PipecatElevenLabsTTS
-from pipecat.frames.frames import TTSAudioFrame, TextFrame
+from pipecat.frames.frames import TTSAudioRawFrame, TextFrame
 
 logger = logging.getLogger(__name__)
 
@@ -52,12 +52,9 @@ class ElevenLabsTTSService:
         self.voice_id = voice_id
         self.model = model
         
-        # Create Pipecat ElevenLabsTTS service
-        self.service = PipecatElevenLabsTTS(
-            api_key=self.api_key,
-            voice_id=voice_id,
-            model=model,
-        )
+        # Create Pipecat ElevenLabsTTS service lazily
+        self.service = _StubTTSService()
+        self._default_process_frame = self.service.process_frame
         
         # Circuit breaker state
         self.failure_count = 0
@@ -66,7 +63,7 @@ class ElevenLabsTTSService:
         self.last_failure_time: Optional[float] = None
         self.recovery_timeout = 60  # Try to close circuit after 60 seconds
         
-    async def synthesize(self, text: str) -> AsyncIterator[TTSAudioFrame]:
+    async def synthesize(self, text: str) -> AsyncIterator[TTSAudioRawFrame]:
         """
         Synthesize text to speech (streaming).
         
@@ -74,7 +71,7 @@ class ElevenLabsTTSService:
             text: Text to synthesize
             
         Yields:
-            TTSAudioFrame objects with audio data
+            TTSAudioRawFrame objects with audio data
             
         Raises:
             CircuitBreakerOpen: If circuit breaker is open (too many failures)
@@ -98,9 +95,24 @@ class ElevenLabsTTSService:
                 raise CircuitBreakerOpen("ElevenLabs TTS circuit breaker open")
         
         try:
+            # Ensure underlying service is initialized inside an active event loop
+            if self.service.process_frame is self._default_process_frame:
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = asyncio.new_event_loop()
+
+                self.service = PipecatElevenLabsTTS(
+                    api_key=self.api_key,
+                    voice_id=self.voice_id,
+                    model=self.model,
+                    loop=loop,
+                )
+                self._default_process_frame = self.service.process_frame
+
             # Call Pipecat service
             async for frame in self.service.process_frame(TextFrame(text=text)):
-                if isinstance(frame, TTSAudioFrame):
+                if isinstance(frame, TTSAudioRawFrame):
                     yield frame
             
             # Reset failure count on success
@@ -156,3 +168,10 @@ class ElevenLabsTTSService:
 class CircuitBreakerOpen(Exception):
     """Raised when circuit breaker is open (provider unavailable)"""
     pass
+
+
+class _StubTTSService:
+    async def process_frame(self, frame):
+        raise NotImplementedError("TTS service not initialized")
+        if False:  # pragma: no cover
+            yield frame

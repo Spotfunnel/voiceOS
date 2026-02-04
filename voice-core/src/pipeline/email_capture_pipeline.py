@@ -24,7 +24,7 @@ class EmailCapturePipeline:
     Frame flow:
     1. AudioRawFrame → STT → TranscriptionFrame
     2. TranscriptionFrame → EmailCaptureProcessor → TextFrame
-    3. TextFrame → TTS → TTSAudioFrame
+    3. TextFrame → TTS → TTSAudioRawFrame
     """
 
     def __init__(

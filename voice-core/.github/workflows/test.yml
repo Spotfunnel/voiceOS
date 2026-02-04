@@ -1,0 +1,50 @@
+name: Run Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd voice-core
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-timeout
+
+      - name: Run unit tests
+        run: |
+          cd voice-core
+          pytest tests/ -m "unit" --tb=short
+
+      - name: Run integration tests
+        run: |
+          cd voice-core
+          pytest tests/ -m "integration" --tb=short
+
+      - name: Run E2E tests
+        run: |
+          cd voice-core
+          pytest tests/e2e/ --tb=short
+
+      - name: Generate coverage report
+        run: |
+          cd voice-core
+          pytest tests/ --cov=src --cov-report=xml
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./voice-core/coverage.xml

@@ -9,7 +9,7 @@ import asyncio
 import os
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List, Callable
 from dataclasses import dataclass, asdict
 from collections import deque
@@ -87,7 +87,7 @@ class EventEmitter:
         """
         event = VoiceCoreEvent(
             event_type=event_type,
-            timestamp=datetime.utcnow().isoformat() + "Z",
+            timestamp=datetime.now(timezone.utc).isoformat(),
             conversation_id=self.conversation_id,
             data=data or {},
             metadata=metadata or {}

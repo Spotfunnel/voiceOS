@@ -14,10 +14,26 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 import pytz
 
-from pipecat.transports.services.twilio import TwilioTransport
-from pipecat.vad.silero import SileroVADAnalyzer
+try:
+    from pipecat.transports.services.twilio import TwilioTransport
+except Exception:  # pragma: no cover - optional dependency
+    TwilioTransport = None
 
-from ..events.event_emitter import EventEmitter
+from pipecat.audio.vad.vad_analyzer import VADParams
+from pipecat.audio.vad.silero import SileroVADAnalyzer
+
+from events.event_emitter import EventEmitter
+
+
+class _StubTwilioTransport:
+    def __init__(self, *args, **kwargs):
+        self._error = "pipecat TwilioTransport is not available in this environment."
+
+    def input(self):
+        raise NotImplementedError(self._error)
+
+    def output(self):
+        raise NotImplementedError(self._error)
 
 
 class AudioEncodingMismatchError(Exception):
@@ -79,14 +95,18 @@ class TwilioTransportWrapper:
         
         # Configure VAD for Australian accent (250ms threshold)
         # Note: Barge-in requires 2-word minimum (handled at LLM layer)
+        vad_params = VADParams(min_volume=0.6, stop_secs=0.25)
         vad_analyzer = SileroVADAnalyzer(
-            min_volume=0.6,
-            end_of_turn_threshold_ms=250,  # Australian accent tuning
+            sample_rate=self.audio_encoding["sample_rate"],
+            params=vad_params,
         )
+        vad_analyzer.end_of_turn_threshold_ms = 250
+        vad_analyzer.min_volume = vad_params.min_volume
         
-        # Create TwilioTransport
+        # Create TwilioTransport (fallback to stub if dependency missing)
         # Note: Pipecat TwilioTransport handles WebSocket connection from Twilio
-        self.transport = TwilioTransport(
+        transport_cls = TwilioTransport or _StubTwilioTransport
+        self.transport = transport_cls(
             account_sid=account_sid,
             auth_token=auth_token,
             bot_name=bot_name,

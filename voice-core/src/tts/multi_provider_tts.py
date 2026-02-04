@@ -17,7 +17,7 @@ import asyncio
 from typing import Optional, AsyncIterator, List
 import logging
 
-from pipecat.frames.frames import TTSAudioFrame, TextFrame, Frame
+from pipecat.frames.frames import TTSAudioRawFrame, TextFrame, Frame
 from pipecat.processors.frame_processor import FrameProcessor
 
 from .cartesia_tts import CartesiaTTSService, CircuitBreakerOpen as CartesiaCircuitBreakerOpen
@@ -55,7 +55,12 @@ class MultiProviderTTS(FrameProcessor):
             cartesia: Cartesia TTS service (primary)
             elevenlabs: ElevenLabs TTS service (fallback)
         """
-        super().__init__()
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+
+        super().__init__(loop=loop)
         
         # Initialize providers
         self.cartesia = cartesia or CartesiaTTSService.from_env()
@@ -82,7 +87,7 @@ class MultiProviderTTS(FrameProcessor):
             frame: Input frame (TextFrame for TTS)
             
         Yields:
-            TTSAudioFrame objects with synthesized audio
+            TTSAudioRawFrame objects with synthesized audio
         """
         # Pass through non-text frames
         if not isinstance(frame, TextFrame):

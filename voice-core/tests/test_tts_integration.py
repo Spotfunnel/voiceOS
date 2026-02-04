@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from tts.cartesia_tts import CartesiaTTSService, CircuitBreakerOpen as CartesiaCircuitBreakerOpen
 from tts.elevenlabs_tts import ElevenLabsTTSService, CircuitBreakerOpen as ElevenLabsCircuitBreakerOpen
 from tts.multi_provider_tts import MultiProviderTTS, AllTTSProvidersFailed
-from pipecat.frames.frames import TextFrame, TTSAudioFrame
+from pipecat.frames.frames import TextFrame, TTSAudioRawFrame
 
 
 class TestCartesiaTTS:
@@ -116,7 +116,7 @@ class TestMultiProviderTTS:
             cartesia = MagicMock(spec=CartesiaTTSService)
             
             async def mock_cartesia_synthesize(text):
-                yield TTSAudioFrame(audio=b"test_audio", sample_rate=16000)
+                yield TTSAudioRawFrame(audio=b"test_audio", sample_rate=16000, num_channels=1)
             
             cartesia.synthesize = mock_cartesia_synthesize
             cartesia.is_circuit_open = False
@@ -159,7 +159,7 @@ class TestMultiProviderTTS:
             elevenlabs = MagicMock(spec=ElevenLabsTTSService)
             
             async def mock_elevenlabs_synthesize(text):
-                yield TTSAudioFrame(audio=b"fallback_audio", sample_rate=16000)
+                yield TTSAudioRawFrame(audio=b"fallback_audio", sample_rate=16000, num_channels=1)
             
             elevenlabs.synthesize = mock_elevenlabs_synthesize
             elevenlabs.is_circuit_open = False

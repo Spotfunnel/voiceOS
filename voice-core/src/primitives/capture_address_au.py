@@ -22,6 +22,7 @@ from typing import Optional, Dict
 import logging
 
 from .base import BaseCaptureObjective
+from ..api.australia_post import AustraliaPostClient
 from ..validation.australian_validators import (
     validate_address_au,
     normalize_state
@@ -77,6 +78,8 @@ class CaptureAddressAU(BaseCaptureObjective):
         self.suburb: Optional[str] = None
         self.state: Optional[str] = None
         self.postcode: Optional[str] = None
+
+        self.australia_post_client = AustraliaPostClient()
         
         # Track which component we're capturing
         self.current_component: Optional[str] = None  # "street", "suburb", "state", "postcode"
@@ -124,42 +127,64 @@ class CaptureAddressAU(BaseCaptureObjective):
         """
         text = transcription.strip()
         
-        # Try to parse full address
-        # Pattern: street, suburb, state, postcode
-        # Handle commas and various separators
-        parts = re.split(r'[,;]|\s+', text)
-        parts = [p.strip() for p in parts if p.strip()]
-        
-        if len(parts) >= 4:
-            # Likely full address: street suburb state postcode
-            # Try to identify components
-            # Postcode is always last and 4 digits
-            postcode_candidate = parts[-1]
-            if re.match(r'^\d{4}$', postcode_candidate):
-                self.postcode = postcode_candidate
+        # Prefer comma-delimited parsing for multi-word states
+        comma_parts = [p.strip() for p in text.split(",") if p.strip()]
+        if len(comma_parts) >= 4:
+            street_part = comma_parts[0]
+            suburb_part = comma_parts[1]
+            state_part = comma_parts[2]
+            postcode_part = comma_parts[3]
+
+            postcode_match = re.search(r"\b\d{4}\b", postcode_part)
+            if postcode_match:
+                self.postcode = postcode_match.group(0)
                 self.components_captured["postcode"] = True
-            
-            # State is usually second-to-last (or could be in postcode position)
-            state_candidate = parts[-2] if len(parts) >= 2 else None
-            if state_candidate:
-                normalized_state = normalize_state(state_candidate)
-                if normalized_state in ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "NT", "ACT"]:
-                    self.state = normalized_state
-                    self.components_captured["state"] = True
-            
-            # Suburb is usually before state
-            if len(parts) >= 3:
-                self.suburb = parts[-3]
-                self.components_captured["suburb"] = True
-            
-            # Street is everything before suburb
-            if len(parts) >= 4:
-                self.street = " ".join(parts[:-3])
-                self.components_captured["street"] = True
-            
-            # Build full address string
+
+            normalized_state = normalize_state(state_part)
+            if normalized_state in ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "NT", "ACT"]:
+                self.state = normalized_state
+                self.components_captured["state"] = True
+
+            self.suburb = suburb_part.title()
+            self.components_captured["suburb"] = True
+
+            self.street = street_part
+            self.components_captured["street"] = True
+
             if self.street and self.suburb and self.state and self.postcode:
                 return f"{self.street}, {self.suburb}, {self.state}, {self.postcode}"
+
+        # Token-based parsing fallback (handles "Richmond NSW 2753")
+        parts = [p.strip() for p in re.split(r"\s+", text) if p.strip()]
+        if len(parts) >= 4 and re.match(r"^\d{4}$", parts[-1]):
+            self.postcode = parts[-1]
+            self.components_captured["postcode"] = True
+
+            state = None
+            state_token_count = 0
+            for n in (3, 2, 1):
+                if len(parts) - 1 - n >= 0:
+                    candidate = " ".join(parts[-1 - n : -1])
+                    normalized_state = normalize_state(candidate)
+                    if normalized_state in ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "NT", "ACT"]:
+                        state = normalized_state
+                        state_token_count = n
+                        break
+
+            if state:
+                self.state = state
+                self.components_captured["state"] = True
+
+                suburb_index = -1 - state_token_count - 1
+                if abs(suburb_index) <= len(parts):
+                    self.suburb = parts[suburb_index].title()
+                    self.components_captured["suburb"] = True
+
+                    self.street = " ".join(parts[:suburb_index])
+                    self.components_captured["street"] = True
+
+                    if self.street and self.suburb and self.state and self.postcode:
+                        return f"{self.street}, {self.suburb}, {self.state}, {self.postcode}"
         
         # If we couldn't parse full address, return as-is
         # The validation will handle partial addresses
@@ -187,9 +212,15 @@ class CaptureAddressAU(BaseCaptureObjective):
             if not validate_address_au(self.suburb, self.state, self.postcode):
                 logger.warning(f"Address failed format validation: {value}")
                 return False
-            
-            # Local format validation only (no external network calls)
-            return validate_address_au(self.suburb, self.state, self.postcode)
+
+            try:
+                result = await self.australia_post_client.validate_address(
+                    suburb=self.suburb, state=self.state, postcode=self.postcode
+                )
+                return result.is_valid
+            except Exception as exc:
+                logger.warning("Australia Post validation failed: %s", exc)
+                return validate_address_au(self.suburb, self.state, self.postcode)
         
         # If we don't have all components, try to extract them
         # This is a fallback - ideally extract_value should parse everything

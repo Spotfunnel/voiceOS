@@ -39,8 +39,8 @@ class VoicePipeline:
     Frame flow:
     1. AudioRawFrame → STT → TranscriptionFrame
     2. TranscriptionFrame → LLM → TextFrame
-    3. TextFrame → TTS (multi-provider) → TTSAudioFrame
-    4. TTSAudioFrame → Transport output
+    3. TextFrame → TTS (multi-provider) → TTSAudioRawFrame
+    4. TTSAudioRawFrame → Transport output
     
     Parallel execution ensures <500ms P50 latency.
     """
@@ -127,8 +127,8 @@ class VoicePipeline:
         Pipeline flow (parallel execution):
         1. transport_input → STT → TranscriptionFrame
         2. TranscriptionFrame → LLM → TextFrame (streaming)
-        3. TextFrame → TTS (multi-provider) → TTSAudioFrame
-        4. TTSAudioFrame → transport_output
+        3. TextFrame → TTS (multi-provider) → TTSAudioRawFrame
+        4. TTSAudioRawFrame → transport_output
         
         Latency target: <500ms P50
         

@@ -229,3 +229,8 @@ def get_db_service() -> DatabaseService:
         _db_service = DatabaseService()
         _db_service.connect()
     return _db_service
+
+
+def get_db_connection():
+    """Get a database connection from the pool."""
+    return get_db_service().get_connection()

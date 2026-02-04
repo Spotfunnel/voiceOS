@@ -31,7 +31,7 @@ class AudioPipeline:
     Frame-based architecture:
     - AudioRawFrame → STT → TranscriptionFrame
     - TranscriptionFrame → LLM → TextFrame
-    - TextFrame → TTS → TTSAudioFrame
+    - TextFrame → TTS → TTSAudioRawFrame
     """
     
     def __init__(
@@ -106,8 +106,8 @@ class AudioPipeline:
         Pipeline flow:
         1. transport_input → STT → TranscriptionFrame
         2. TranscriptionFrame → LLM → TextFrame
-        3. TextFrame → TTS → TTSAudioFrame
-        4. TTSAudioFrame → transport_output
+        3. TextFrame → TTS → TTSAudioRawFrame
+        4. TTSAudioRawFrame → transport_output
         
         Args:
             transport_input: Transport input (audio from call)
