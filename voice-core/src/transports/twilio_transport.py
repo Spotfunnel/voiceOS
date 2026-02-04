@@ -12,6 +12,7 @@ import os
 import asyncio
 from typing import Optional, Dict, Any
 from datetime import datetime
+import logging
 import pytz
 
 try:
@@ -23,6 +24,9 @@ from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.audio.vad.silero import SileroVADAnalyzer
 
 from events.event_emitter import EventEmitter
+from transports.smart_turn_config import SmartTurnConfig
+
+logger = logging.getLogger(__name__)
 
 
 class _StubTwilioTransport:
@@ -102,6 +106,14 @@ class TwilioTransportWrapper:
         )
         vad_analyzer.end_of_turn_threshold_ms = 250
         vad_analyzer.min_volume = vad_params.min_volume
+
+        smart_turn_analyzer = SmartTurnConfig.create_analyzer(sample_rate=16000)
+        if smart_turn_analyzer:
+            logger.info(
+                "Smart Turn V3 enabled for Twilio PSTN (auto-resampling 8kHz -> 16kHz)"
+            )
+        else:
+            logger.info("Smart Turn V3 disabled for Twilio PSTN")
         
         # Create TwilioTransport (fallback to stub if dependency missing)
         # Note: Pipecat TwilioTransport handles WebSocket connection from Twilio
@@ -114,6 +126,7 @@ class TwilioTransportWrapper:
             audio_out_enabled=True,
             vad_analyzer=vad_analyzer,
             vad_enabled=True,
+            turn_analyzer=smart_turn_analyzer,
             # Audio encoding: mulaw 8kHz for PSTN
             audio_encoding=self.audio_encoding["encoding"],
             sample_rate=self.audio_encoding["sample_rate"],

@@ -25,6 +25,13 @@ from transports.twilio_transport import (
 from events.event_emitter import EventEmitter
 
 
+@pytest.fixture(autouse=True)
+def disable_smart_turn(monkeypatch):
+    from transports.smart_turn_config import SmartTurnConfig
+
+    monkeypatch.setattr(SmartTurnConfig, "create_analyzer", lambda *args, **kwargs: None)
+
+
 class TestDailyTransport:
     """Tests for Daily.co transport"""
     

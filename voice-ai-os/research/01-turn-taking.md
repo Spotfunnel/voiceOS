@@ -244,9 +244,10 @@ Turn-taking is the single most critical factor separating natural voice AI from 
 - Rationale: Backchannel *detection* is critical; backchannel *generation* is nice-to-have
 - Constraint: V1 will feel slightly less human without agent backchannels
 
-**Decision: Use Pipecat Smart Turn V3 (LocalSmartTurnAnalyzerV3) for turn management**
+**Decision: Use Pipecat Smart Turn V3 (LocalSmartTurnAnalyzerV3) for turn management** ✅ IMPLEMENTED V1
 - Rationale: ML-based turn detection beyond basic VAD; recognizes intonation patterns and linguistic signals; supports fast CPU inference
-- Constraint: ~400MB RAM requirement, ~25ms inference time
+- Implementation: Pipecat v0.0.85+, 12ms CPU inference, 8MB model, 23 languages
+- Constraint: ~8MB RAM (model), ~12ms inference time
 - Alternative: LiveKit Turn Detector v1.3.12 (Jan 2026) - 13 languages, 25ms inference, open-weights model
 
 ## Open Questions / Risks

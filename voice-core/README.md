@@ -85,6 +85,27 @@ ELEVENLABS_VOICE_ID=21m00Tcm4TlvDq8ikWAM
 The existing `spotfunnel.daily.co` room and API token are preserved in
 `.env.example` so the friendly receptionist demo can launch immediately.
 
+### Smart Turn V3 (Turn Detection)
+
+Smart Turn V3 provides ML-based turn detection to reduce premature cutoffs.
+
+Features:
+- 12ms CPU inference (no GPU required)
+- 8MB quantized model (smart-turn-v3.2-cpu)
+- 23 languages including English (AU)
+- Works in conjunction with Silero VAD
+
+Configuration:
+```bash
+SMART_TURN_ENABLED=true
+SMART_TURN_CPU_COUNT=1
+```
+
+How it works:
+1. Silero VAD detects silence periods
+2. Smart Turn analyzes full audio segment for turn completion
+3. Combines acoustic features (prosody, intonation) with linguistic cues
+
 ### 3. Run Test Call
 
 ```bash
@@ -109,7 +130,7 @@ Expected behavior:
 - **Cartesia / ElevenLabs**: handled through the `pipecat-ai[elevens,...]` extras,
   but the Voice Core wrappers enforce the sonic-3 / eleven_turbo_v2 voices so
   the cost/latency assumptions in the demo hold.
-- **Daily.co**: the release bundled with `pipecat-ai==0.0.46` is the version
+- **Daily.co**: the release bundled with `pipecat-ai==0.0.85` is the version
   validated for `spotfunnel.daily.co`; avoid mixing in newer `daily` releases
   without a quick sanity check.
 

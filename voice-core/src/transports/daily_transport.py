@@ -17,6 +17,7 @@ from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.transports.services.daily import DailyParams, DailyTransport
 
 from events.event_emitter import EventEmitter
+from transports.smart_turn_config import SmartTurnConfig
 
 logger = logging.getLogger(__name__)
 
@@ -48,21 +49,23 @@ class DailyTransportWrapper:
         self.event_emitter = event_emitter
         self.bot_name = bot_name
         
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-
         vad_params = VADParams(min_volume=0.6, stop_secs=0.25)
         vad_analyzer = SileroVADAnalyzer(sample_rate=16000, params=vad_params)
         vad_analyzer.end_of_turn_threshold_ms = 250
         vad_analyzer.min_volume = vad_params.min_volume
+
+        smart_turn_analyzer = SmartTurnConfig.create_analyzer(sample_rate=16000)
+        if smart_turn_analyzer:
+            logger.info("Smart Turn V3 enabled (12ms inference, 23 languages)")
+        else:
+            logger.info("Smart Turn V3 disabled, using VAD-only turn detection")
 
         params = DailyParams(
             audio_in_enabled=True,
             audio_out_enabled=True,
             vad_enabled=True,
             vad_analyzer=vad_analyzer,
+            turn_analyzer=smart_turn_analyzer,
         )
 
         # Create DailyTransport with explicit loop (fallback to stub on failure)
@@ -72,7 +75,6 @@ class DailyTransportWrapper:
                 token=token,
                 bot_name=bot_name,
                 params=params,
-                loop=loop,
             )
         except RuntimeError as exc:
             logger.warning("DailyTransport init failed, using stub: %s", exc)
