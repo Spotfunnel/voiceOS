@@ -30,6 +30,16 @@ from ..validation.australian_validators import (
 
 logger = logging.getLogger(__name__)
 
+STATE_FULL_NAMES = {
+    "NSW": "New South Wales",
+    "VIC": "Victoria",
+    "QLD": "Queensland",
+    "SA": "South Australia",
+    "WA": "Western Australia",
+    "TAS": "Tasmania",
+    "NT": "Northern Territory",
+    "ACT": "Australian Capital Territory",
+}
 
 class CaptureAddressAU(BaseCaptureObjective):
     """
@@ -95,7 +105,7 @@ class CaptureAddressAU(BaseCaptureObjective):
         if not self.current_component:
             # First time - ask for full address
             if self.state_machine.retry_count == 0:
-                return "What's your address? Please include street, suburb, state, and postcode."
+                return "What's the address for the booking? Please include street, suburb, state, and postcode."
             elif self.state_machine.retry_count == 1:
                 return "Sorry, I didn't catch that. Could you please repeat your address?"
             else:
@@ -109,6 +119,20 @@ class CaptureAddressAU(BaseCaptureObjective):
                 "postcode": "What's the postcode?"
             }
             return component_prompts.get(self.current_component, "What's your address?")
+
+    async def _update_components_from_value(self, value: str, confidence: float) -> None:
+        self.captured_components = {
+            "street": self.street,
+            "suburb": self.suburb,
+            "state": self.state,
+            "postcode": self.postcode,
+        }
+        self.component_confidence = {
+            "street": confidence,
+            "suburb": confidence,
+            "state": confidence,
+            "postcode": confidence,
+        }
     
     async def extract_value(self, transcription: str) -> Optional[str]:
         """
@@ -240,10 +264,10 @@ class CaptureAddressAU(BaseCaptureObjective):
             Confirmation prompt
         """
         if self.street and self.suburb and self.state and self.postcode:
-            formatted = f"{self.street}, {self.suburb}, {self.state}, {self.postcode}"
-            return f"Got it, {formatted}. Is that correct?"
-        else:
-            return f"Got it, {value}. Is that correct?"
+            state_name = STATE_FULL_NAMES.get(self.state, self.state)
+            formatted = f"{self.street}, {self.suburb}, {state_name}, {self.postcode}"
+            return f"Okay, {formatted}. Is that correct?"
+        return f"Got it, {value}. Is that correct?"
     
     def normalize_value(self, value: str) -> str:
         """
@@ -326,3 +350,34 @@ class CaptureAddressAU(BaseCaptureObjective):
         
         # Extract address from remaining text
         return await self.extract_value(text)
+
+    async def _contextual_confirmation(self, value: str) -> str:
+        return self.get_confirmation_prompt(value)
+
+    async def _incremental_repair(self, transcription: str) -> Optional[str]:
+        text = transcription.lower().strip()
+
+        if "start over" in text or "forget that" in text:
+            return None
+
+        full = await self.extract_value(text)
+        if full and all([self.street, self.suburb, self.state, self.postcode]):
+            return full
+
+        postcode_match = re.search(r"\b\d{4}\b", text)
+        if postcode_match:
+            self.postcode = postcode_match.group(0)
+
+        for key, full_name in STATE_FULL_NAMES.items():
+            if key.lower() in text or full_name.lower() in text:
+                self.state = key
+                break
+
+        suburb_match = re.search(r"suburb\s+([a-zA-Z'-]+)", text)
+        if suburb_match:
+            self.suburb = suburb_match.group(1).title()
+
+        if all([self.street, self.suburb, self.state, self.postcode]):
+            return f"{self.street}, {self.suburb}, {self.state}, {self.postcode}"
+
+        return None

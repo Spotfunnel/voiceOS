@@ -21,7 +21,7 @@ Architecture compliance:
 
 import os
 import asyncio
-from typing import Dict, Optional, Set
+from typing import Dict, Optional, Set, Any
 from datetime import datetime
 import logging
 
@@ -34,7 +34,9 @@ from pipecat.pipeline.task import PipelineTask
 from .transports.daily_transport import DailyTransportWrapper
 from .transports.twilio_transport import TwilioTransportWrapper
 from .pipeline.voice_pipeline import build_voice_pipeline
+from .pipeline.objective_graph_pipeline import build_objective_graph_pipeline
 from .events.event_emitter import EventEmitter
+from .services.phone_routing import get_tenant_config
 from .api.twilio_webhook import router as twilio_router
 from .api.tenant_config import router as tenant_config_router
 from .api.onboarding import router as onboarding_router
@@ -64,6 +66,10 @@ class StartCallRequest(BaseModel):
     room_url: Optional[str] = None  # For Daily.co
     token: Optional[str] = None  # For Daily.co
     call_sid: Optional[str] = None  # For Twilio
+    tenant_id: Optional[str] = None
+    caller_phone: Optional[str] = None
+    system_prompt: Optional[str] = None
+    config: Optional[Dict[str, Any]] = None
 
 
 class StopCallRequest(BaseModel):
@@ -114,13 +120,24 @@ async def start_call(request: StartCallRequest):
         else:
             raise HTTPException(status_code=400, detail=f"Invalid transport: {request.transport}")
         
-        # Build voice pipeline
-        pipeline = build_voice_pipeline(
-            transport_input=transport.input(),
-            transport_output=transport.output(),
-            event_emitter=event_emitter,
-            system_prompt=DEFAULT_SYSTEM_PROMPT
-        )
+        tenant_config = request.config
+        if tenant_config is None and request.tenant_id:
+            tenant_config = await get_tenant_config(request.tenant_id)
+
+        if tenant_config:
+            pipeline = build_objective_graph_pipeline(
+                tenant_config=tenant_config,
+                transport=transport,
+                event_emitter=event_emitter,
+            )
+        else:
+            # Fallback to basic voice pipeline when no tenant config is available
+            pipeline = build_voice_pipeline(
+                transport_input=transport.input(),
+                transport_output=transport.output(),
+                event_emitter=event_emitter,
+                system_prompt=request.system_prompt or DEFAULT_SYSTEM_PROMPT,
+            )
         
         # Create pipeline task
         task = PipelineTask(pipeline)

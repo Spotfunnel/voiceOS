@@ -112,6 +112,10 @@ async def complete_onboarding(session_id: str):
         customizations = session.customizations
         tenant.service_catalog = customizations.get("service_catalog", tenant.service_catalog)
         tenant.faq_knowledge_base = customizations.get("faq_knowledge_base", tenant.faq_knowledge_base)
+        tenant.system_prompt = customizations.get("system_prompt", tenant.system_prompt)
+        tenant.agent_role = customizations.get("agent_role", tenant.agent_role)
+        tenant.agent_personality = customizations.get("agent_personality", tenant.agent_personality)
+        tenant.greeting_message = customizations.get("greeting_message", tenant.greeting_message)
         await update_tenant_config(tenant.tenant_id, tenant)
 
     session.is_live = True

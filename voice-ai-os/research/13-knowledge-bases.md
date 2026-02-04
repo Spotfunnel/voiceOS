@@ -1,6 +1,6 @@
 # Research: Knowledge Bases for Real-Time Voice AI
 
-**🟢 LOCKED** - Production-validated research based on RAG latency budgets (<100ms retrieval), semantic chunking, hybrid search, cache-first patterns, production knowledge base architectures. Updated February 2026.
+**🟢 LOCKED** - Production-validated research based on RAG latency budgets (<100ms retrieval), semantic chunking, hybrid search, cache-first patterns, production knowledge base architectures, streaming RAG patterns, and Pipecat integration. Updated February 2026.
 
 ---
 
@@ -189,11 +189,13 @@ Systems maintaining 90% precision at 100K documents degrade to 65% at 10M docume
 
 **Cost Impact:** High (speculative retrievals that may not be used)
 
-**Verified Implementation (Sierra AI, 2025):**
+**Verified Implementation (Sierra AI, 2025; Stream RAG, Meta/Carnegie Mellon, 2025):**
 - Analyze conversation context to predict next user intent
-- Prefetch top 3-5 likely knowledge chunks during user speech
+- Prefetch top 3-5 likely knowledge chunks during user speech (parallel with STT)
+- Stream RAG: Predict tool queries before user finishes speaking, issue retrieval calls in parallel
 - If prediction correct: Zero retrieval latency (already in memory)
 - If prediction wrong: Fall back to standard retrieval
+- **Production results**: 200% relative accuracy improvement (11.1% → 34.2% absolute), 20% latency reduction
 
 **Limitations:**
 - High cost (wasted retrievals for incorrect predictions)
@@ -529,14 +531,36 @@ Do NOT guess or make up information.
 
 ## Common Failure Modes (Observed in Real Systems)
 
-### Failure Mode 1: RAG Latency Spikes Break Conversational Flow
+### Failure Mode 1: Multi-Step Reasoning Drift and Latent Inconsistency (Production Evidence 2026)
+
+**Symptom:** LLM systems exhibit >20-30% output divergence with repeated runs, latent inconsistency in intermediate steps, context-boundary degradation, incorrect tool invocation.
+
+**Root Cause (Production Evidence 2026):**
+- Hidden failure modes in LLM systems remain undetected during testing but emerge under realistic operating conditions
+- Multi-step reasoning over knowledge creates drift
+- Context-boundary degradation when combining retrieved knowledge with conversation history
+- Tool invocation failures when RAG context conflicts with tool schema
+
+**Impact:** Unpredictable behavior, incorrect responses, user trust loss.
+
+**Prevention:**
+- Monitor output consistency across repeated runs
+- Validate tool invocations against schema before execution
+- Implement confidence gating for multi-step reasoning queries
+- Use deterministic retrieval (fixed top-k, no randomness)
+
+---
+
+### Failure Mode 1-B: RAG Latency Spikes Break Conversational Flow (Updated Feb 2026)
 
 **Symptom:** User finishes speaking, 1-2 seconds of silence, then agent responds.
 
-**Root Cause:** 
+**Root Cause (Production Evidence 2026):**
+- Query rewriting previously accounted for 80%+ of RAG latency before optimization (ElevenLabs production data)
 - Vector search takes 200-400ms (large index, slow algorithm)
 - Reranking adds 100-200ms
 - Total retrieval: 300-600ms before LLM inference
+- **Production reality**: Even optimized RAG (155ms median) consumes 31% of 500ms turn latency budget
 
 **Impact:** User perceives agent as slow, unresponsive, or "thinking too hard."
 
@@ -545,11 +569,12 @@ Do NOT guess or make up information.
 - [800ms silence]
 - Agent: "Our return policy is..."
 
-**Prevention:**
+**Prevention (Production-Validated):**
 - Use approximate nearest neighbor algorithms (FAISS, HNSW) for <50ms search
 - Preload indexes into memory (avoid disk I/O)
 - Skip reranking for voice (trade accuracy for latency)
 - Use semantic caching for common queries
+- **Stream RAG pattern**: Predict queries during user speech, retrieve in parallel (20% latency reduction verified)
 
 ### Failure Mode 2: LLM Hallucinates When Retrieval Returns Irrelevant Results
 
@@ -726,7 +751,29 @@ Do NOT guess or make up information.
 - Circuit breaker: Detect database failures, switch to degraded mode
 - Monitor database health, alert on failures
 
-### Failure Mode 10: Semantic Drift Causes Precision Degradation at Scale
+### Failure Mode 10: RAG Pipeline Latency Spikes Break Conversational Flow (Updated Feb 2026)
+
+**Symptom:** User finishes speaking, 1-2 seconds of silence, then agent responds. Retrieval latency exceeds conversational threshold.
+
+**Root Cause (Production Evidence 2026):**
+- Query rewriting previously accounted for 80%+ of RAG latency before optimization
+- Vector search takes 200-400ms (large index, slow algorithm)
+- Reranking adds 100-200ms
+- Total retrieval: 300-600ms before LLM inference
+- **Production reality**: ElevenLabs reduced median RAG latency from 326ms to 155ms (50% reduction) through architectural improvements, but even 155ms consumes 31% of 500ms turn latency budget
+
+**Impact:** User perceives agent as slow, unresponsive, or "thinking too hard." Breaks conversational flow.
+
+**Prevention (Production-Validated):**
+- Use approximate nearest neighbor algorithms (FAISS, HNSW) for <50ms search
+- Preload indexes into memory (avoid disk I/O)
+- Skip reranking for voice (trade accuracy for latency)
+- Use semantic caching for common queries
+- **Stream RAG pattern**: Predict queries during user speech, retrieve in parallel (20% latency reduction verified)
+
+---
+
+### Failure Mode 11: Semantic Drift Causes Precision Degradation at Scale
 
 **Symptom:** Retrieval precision degrades as knowledge base grows from 100K to 10M documents.
 
@@ -785,10 +832,11 @@ Do NOT guess or make up information.
 - Expensive retrievals (Tier 3-4) only when necessary
 
 **Implementation for Pipecat:**
-- Tier 1: System prompt with prompt caching enabled
-- Tier 2: Redis/Elasticsearch semantic cache
-- Tier 3: Pinecone/Weaviate/Qdrant with hybrid search
-- Tier 4: Pipecat tool integration with async calls
+- Tier 1: System prompt with prompt caching enabled (Pipecat LLM service supports prompt caching)
+- Tier 2: Redis/Elasticsearch semantic cache (custom frame processor or tool integration)
+- Tier 3: Pinecone/Weaviate/Qdrant with hybrid search (Pipecat tool/function calling integration)
+- Tier 4: Pipecat tool integration with async calls (FunctionCallRegistryItem, FunctionCallResultCallback)
+- **Pipecat-specific**: Use `FunctionCallParams` for knowledge retrieval tools, `tools_schema` for tool definitions, async execution to avoid blocking conversation flow
 
 ### Pattern 2: Predictive Prefetching During User Speech (Verified)
 
@@ -814,7 +862,7 @@ Do NOT guess or make up information.
 
 **Trade-off:** Higher cost for lower latency. Suitable for high-value use cases where latency is critical.
 
-**Verified in:** Sierra AI production voice systems (2025)
+**Verified in:** Sierra AI production voice systems (2025), Stream RAG research (Meta/Carnegie Mellon, 2025) achieving 200% relative accuracy improvement and 20% latency reduction through parallel retrieval during user speech
 
 ### Pattern 3: Hybrid Search with Lightweight Reranking (Verified)
 
@@ -1101,10 +1149,16 @@ Do NOT guess or make up information.
 - `knowledge_query_coverage`: % of queries with high-confidence retrieval (target: >80%)
 - `knowledge_gaps`: Queries with no relevant results (requires manual review)
 
-**Cost:**
+**Cost (2026 Production Pricing):**
 - `embedding_cost_per_query`: Cost of query embedding (track separately)
 - `vector_db_cost_per_month`: Vector database infrastructure costs
+  - **Pinecone**: $0.11-$1.33/hour (pods), serverless on-demand available
+  - **Weaviate**: $45/month (Flex) to $400+/month (Premium, 99.95% uptime)
+  - **Cloudflare Vectorize**: $0.01 per million queried dimensions, $0.05 per 100M stored dimensions
+  - **Example**: 50K vectors, 768 dimensions, 200K queries/month = ~$1.94/month (Cloudflare)
 - `knowledge_update_cost`: Cost of reindexing (embeddings + compute)
+  - **Embedding costs**: ~$20 for 1M documents, ~$2,000 for 100M documents (at $0.002/1K tokens)
+  - **Vector DB reindexing**: Infrastructure costs during reindexing (CPU/GPU)
 
 ### LLM Behavior Metrics (Knowledge-Related)
 
@@ -1151,6 +1205,7 @@ Do NOT guess or make up information.
 - High-quality embedding model for documents (OpenAI text-embedding-3-large)
 - Confidence gating: Reject retrievals with similarity <0.75
 - Retrieval latency target: P95 <100ms
+- **Pipecat integration**: Use function calling for Tier 3-4 knowledge retrieval, custom frame processor for Tier 2 semantic cache
 
 **Response Constraints:**
 - Maximum response length: 150 tokens
@@ -1168,6 +1223,7 @@ Do NOT guess or make up information.
 - Cache hit rates
 - Response length distribution
 - Context window utilization
+- **Pipecat-specific**: Tool call latency (separate from LLM latency), frame-level tracing for knowledge retrieval, function call success/failure rates
 
 ### Out of Scope for V1 (Post-V1)
 
@@ -1218,7 +1274,10 @@ LLM context windows (8K-128K tokens) limit how much knowledge can be retrieved. 
 ### Evidence Gaps
 
 **Pipecat-Specific RAG Performance:**
-No public benchmarks for Pipecat with vector databases (Pinecone, Weaviate, Qdrant). Retrieval latency may be higher than standalone benchmarks due to framework overhead. Requires internal testing.
+- **Function calling integration**: Pipecat provides `FunctionCallParams`, `FunctionCallRegistryItem`, `FunctionCallResultCallback` for tool integration
+- **Async execution**: Pipecat supports async tool calls to avoid blocking conversation flow
+- **No public benchmarks**: No public benchmarks for Pipecat with vector databases (Pinecone, Weaviate, Qdrant). Retrieval latency may be higher than standalone benchmarks due to framework overhead. Requires internal testing.
+- **Integration pattern**: Use Pipecat tool/function calling for knowledge retrieval (Tier 3-4), semantic cache as custom frame processor (Tier 2)
 
 **Optimal Chunk Size for Voice:**
 Recommendation of 200-300 tokens is based on general RAG practices, not voice-specific data. Voice may benefit from smaller chunks (100-200 tokens) for conciseness. Requires experimentation.
@@ -1228,6 +1287,9 @@ Recommendation of 200-300 tokens is based on general RAG practices, not voice-sp
 
 **Semantic Cache Hit Rate for Voice:**
 Claimed 20-40% hit rate is based on chatbot data. Voice queries may be more diverse (lower hit rate) or more repetitive (higher hit rate) depending on use case. Requires measurement.
+
+**Stream RAG Predictive Prefetching:**
+Stream RAG research (Meta/Carnegie Mellon, 2025) shows 200% relative accuracy improvement and 20% latency reduction through parallel retrieval during user speech. Production validation needed for voice AI use cases. Cost impact of 2-3× retrieval costs (speculative retrievals) must be justified by latency savings.
 
 **Asymmetric Embedding Quality:**
 Using lightweight model for queries and high-quality model for documents is hypothesis. Retrieval quality impact is unknown without testing. May require same model for both.

@@ -67,15 +67,40 @@ class CaptureEmailAU(BaseCaptureObjective):
             requires_multi_asr=True,  # Multi-ASR required for Australian accent
             max_retries=max_retries
         )
+
+        # Component tracking for incremental repair
+        self.username: Optional[str] = None
+        self.domain: Optional[str] = None
     
     def get_elicitation_prompt(self) -> str:
         """Get prompt to ask for email address"""
         if self.state_machine.retry_count == 0:
-            return "What's your email address?"
+            return "What's the best email to reach you?"
         elif self.state_machine.retry_count == 1:
             return "Sorry, I didn't catch that. Could you please repeat your email address?"
         else:
             return "Let's try again. Please say your email address slowly and clearly."
+
+    async def _update_components_from_value(self, value: str, confidence: float) -> None:
+        try:
+            username, domain = value.split("@", 1)
+        except ValueError:
+            self.username = None
+            self.domain = None
+            self.captured_components = {}
+            self.component_confidence = {}
+            return
+
+        self.username = username
+        self.domain = domain
+        self.captured_components = {
+            "username": username,
+            "domain": domain,
+        }
+        self.component_confidence = {
+            "username": confidence,
+            "domain": confidence,
+        }
     
     async def extract_value(self, transcription: str) -> Optional[str]:
         """
@@ -230,6 +255,28 @@ class CaptureEmailAU(BaseCaptureObjective):
         # Replace @ and . with spoken equivalents
         spoken_email = value.replace("@", " at ").replace(".", " dot ")
         return f"Got it, {spoken_email}. Is that correct?"
+
+    async def _contextual_confirmation(self, value: str) -> str:
+        """
+        Contextual confirmation with partial confirmation for uncertainty.
+        """
+        username, domain = value.split("@", 1)
+        domain_spoken = domain.replace(".", " dot ")
+
+        username_conf = self.component_confidence.get("username", 0.0)
+        domain_conf = self.component_confidence.get("domain", 0.0)
+
+        # If username uncertain, confirm username explicitly
+        if username_conf < 0.7:
+            spelled = " ".join(username)
+            return f"Is that {spelled} at {domain_spoken}?"
+
+        # If domain uncertain, confirm domain only
+        if domain_conf < 0.7:
+            return f"{username} at {domain_spoken}, is that right?"
+
+        # Default: full contextual confirmation (not robotic)
+        return f"Got it, {username} at {domain_spoken}. Sound right?"
     
     def normalize_value(self, value: str) -> str:
         """
@@ -311,3 +358,53 @@ class CaptureEmailAU(BaseCaptureObjective):
         
         # Extract email from remaining text
         return await self.extract_value(text)
+
+    async def _incremental_repair(self, transcription: str) -> Optional[str]:
+        text = transcription.lower().strip()
+
+        if "start over" in text or "forget that" in text:
+            return None
+
+        # If full email present, replace entirely
+        full = await self.extract_value(text)
+        if full:
+            return full
+
+        if not self.username or not self.domain:
+            return None
+
+        # Domain correction (dot com/org/net, or common domains)
+        domain_updates = {
+            "gmail": "gmail.com",
+            "outlook": "outlook.com",
+            "hotmail": "hotmail.com",
+            "yahoo": "yahoo.com",
+            "icloud": "icloud.com",
+            "protonmail": "protonmail.com",
+            "fastmail": "fastmail.com",
+            "bigpond": "bigpond.com",
+            "optusnet": "optusnet.com.au",
+        }
+        for key, value in domain_updates.items():
+            if key in text:
+                self.domain = value
+                return f"{self.username}@{self.domain}"
+
+        if "dot org" in text:
+            self.domain = re.sub(r"\.[a-z]+$", ".org", self.domain)
+            return f"{self.username}@{self.domain}"
+        if "dot com" in text:
+            self.domain = re.sub(r"\.[a-z]+$", ".com", self.domain)
+            return f"{self.username}@{self.domain}"
+
+        # Username correction: "it's jaine" or "jaine with an i"
+        if "it's " in text or "its " in text:
+            parts = re.split(r"\s+", text)
+            for i, part in enumerate(parts):
+                if part in {"it's", "its"} and i + 1 < len(parts):
+                    candidate = re.sub(r"[^a-z0-9._+-]", "", parts[i + 1])
+                    if candidate:
+                        self.username = candidate
+                        return f"{self.username}@{self.domain}"
+
+        return None

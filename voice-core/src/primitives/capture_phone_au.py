@@ -71,15 +71,42 @@ class CapturePhoneAU(BaseCaptureObjective):
             requires_multi_asr=True,  # Multi-ASR required for Australian accent
             max_retries=max_retries
         )
+
+        # Component tracking for incremental repair
+        self.area_code: Optional[str] = None
+        self.number: Optional[str] = None
     
     def get_elicitation_prompt(self) -> str:
         """Get prompt to ask for phone number"""
         if self.state_machine.retry_count == 0:
-            return "What's your phone number?"
+            return "What's the best number to reach you on?"
         elif self.state_machine.retry_count == 1:
             return "Sorry, I didn't catch that. Could you please repeat your phone number?"
         else:
             return "Let's try again. Please say your phone number slowly and clearly."
+
+    async def _update_components_from_value(self, value: str, confidence: float) -> None:
+        digits = re.sub(r"\D", "", value)
+        if digits.startswith("61"):
+            digits = "0" + digits[2:]
+
+        if len(digits) >= 10:
+            self.area_code = digits[:2]
+            self.number = digits[2:]
+            self.captured_components = {
+                "area_code": self.area_code,
+                "number": self.number,
+            }
+            self.component_confidence = {
+                "area_code": confidence,
+                "number": confidence,
+            }
+            return
+
+        self.area_code = None
+        self.number = None
+        self.captured_components = {}
+        self.component_confidence = {}
     
     async def extract_value(self, transcription: str) -> Optional[str]:
         """
@@ -173,21 +200,58 @@ class CapturePhoneAU(BaseCaptureObjective):
         
         # Mobile format: 04xx xxx xxx
         if digits.startswith('04') and len(digits) == 10:
-            formatted = f"{digits[0:4]} {digits[4:7]} {digits[7:10]}"
-            return f"Got it, {formatted}. Is that right?"
+            spoken = self._speak_grouped(digits, [4, 3, 3])
+            return f"Perfect, {spoken}. Is that correct?"
         
         # Landline format: 0x xxxx xxxx
         elif digits[0] == '0' and len(digits) == 10:
-            formatted = f"{digits[0:2]} {digits[2:6]} {digits[6:10]}"
-            return f"Got it, {formatted}. Is that right?"
+            spoken = self._speak_grouped(digits, [2, 4, 4])
+            return f"Got it, {spoken}. Is that right?"
         
         # International format: +61 xxx xxx xxx
         elif value.startswith('+61'):
-            formatted = f"+61 {digits[2:5]} {digits[5:8]} {digits[8:11]}"
-            return f"Got it, {formatted}. Is that right?"
+            spoken = self._speak_grouped(digits[2:], [3, 3, 3])
+            return f"Got it, plus six one {spoken}. Is that right?"
         
         # Fallback: just confirm as-is
         return f"Got it, {value}. Is that right?"
+
+    async def _contextual_confirmation(self, value: str) -> str:
+        return self.get_confirmation_prompt(value)
+
+    async def _incremental_repair(self, transcription: str) -> Optional[str]:
+        text = transcription.lower().strip()
+
+        if "start over" in text or "forget that" in text:
+            return None
+
+        digits = re.sub(r"\D", "", text)
+        if len(digits) >= 10:
+            return digits
+
+        # If user says "ending in 6789" or "last four 6789"
+        if self.number and ("ending in" in text or "last" in text):
+            if len(digits) >= 4:
+                last_four = digits[-4:]
+                self.number = self.number[:-4] + last_four
+                return f"{self.area_code}{self.number}"
+
+        return None
+
+    def _speak_grouped(self, digits: str, groups: list[int]) -> str:
+        spoken_map = {
+            "0": "oh", "1": "one", "2": "two", "3": "three", "4": "four",
+            "5": "five", "6": "six", "7": "seven", "8": "eight", "9": "nine",
+        }
+        parts = []
+        idx = 0
+        for size in groups:
+            chunk = digits[idx : idx + size]
+            if not chunk:
+                break
+            parts.append("-".join(spoken_map.get(ch, ch) for ch in chunk))
+            idx += size
+        return ", ".join(parts)
     
     def normalize_value(self, value: str) -> str:
         """

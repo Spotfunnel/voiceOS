@@ -40,6 +40,10 @@ class TenantConfig(BaseModel):
     business_name: str
     phone_number: str
     locale: str = "en-AU"
+    system_prompt: Optional[str] = None
+    agent_role: str = "receptionist"
+    agent_personality: str = "friendly"
+    greeting_message: Optional[str] = None
     objective_graph: Dict[str, Any]
     service_catalog: List[ServiceCatalogItem] = Field(default_factory=list)
     faq_knowledge_base: List[FAQItem] = Field(default_factory=list)
@@ -74,6 +78,10 @@ def _to_tenant_config(tenant_row, config_row, template_data) -> TenantConfig:
         business_name=tenant_row["business_name"],
         phone_number=tenant_row["phone_number"],
         locale=tenant_row.get("locale", "en-AU"),
+        system_prompt=tenant_row.get("system_prompt"),
+        agent_role=tenant_row.get("agent_role", "receptionist"),
+        agent_personality=tenant_row.get("agent_personality", "friendly"),
+        greeting_message=tenant_row.get("greeting_message"),
         objective_graph=json.loads(config_row["objective_graph"]) if isinstance(config_row["objective_graph"], str) else config_row["objective_graph"],
         service_catalog=template_data.get("service_catalog", []),
         faq_knowledge_base=template_data.get("faq_knowledge_base", []),
@@ -86,7 +94,11 @@ async def get_tenant_config(tenant_id: str):
     conn = get_db_connection()
     try:
         tenant = conn.execute(
-            "SELECT tenant_id, business_name, phone_number, locale, created_at FROM tenants WHERE tenant_id = ?",
+            """
+            SELECT tenant_id, business_name, phone_number, locale, created_at,
+                   system_prompt, agent_role, agent_personality, greeting_message
+            FROM tenants WHERE tenant_id = ?
+            """,
             (tenant_id,),
         ).fetchone()
         if not tenant:
@@ -118,8 +130,22 @@ async def create_tenant(request: CreateTenantRequest):
     conn = get_db_connection()
     try:
         conn.execute(
-            "INSERT INTO tenants (tenant_id, business_name, phone_number, created_at) VALUES (?, ?, ?, ?)",
-            (tenant_id, request.business_name, request.phone_number, datetime.now()),
+            """
+            INSERT INTO tenants (
+                tenant_id, business_name, phone_number, created_at,
+                system_prompt, agent_role, agent_personality, greeting_message
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                tenant_id,
+                request.business_name,
+                request.phone_number,
+                datetime.now(),
+                template.get("system_prompt"),
+                template.get("agent_role", "receptionist"),
+                template.get("agent_personality", "friendly"),
+                template.get("greeting_message"),
+            ),
         )
         conn.execute(
             """
@@ -140,6 +166,10 @@ async def create_tenant(request: CreateTenantRequest):
             business_name=request.business_name,
             phone_number=request.phone_number,
             locale=request.locale,
+            system_prompt=template.get("system_prompt"),
+            agent_role=template.get("agent_role", "receptionist"),
+            agent_personality=template.get("agent_personality", "friendly"),
+            greeting_message=template.get("greeting_message"),
             objective_graph=template["objective_graph"],
             service_catalog=template.get("service_catalog", []),
             faq_knowledge_base=template.get("faq_knowledge_base", []),
@@ -160,6 +190,22 @@ async def update_tenant_config(tenant_id: str, config: TenantConfig):
         tenant = conn.execute("SELECT tenant_id FROM tenants WHERE tenant_id = ?", (tenant_id,)).fetchone()
         if not tenant:
             raise HTTPException(status_code=404, detail="Tenant not found")
+
+        # Update tenant metadata
+        conn.execute(
+            """
+            UPDATE tenants
+            SET system_prompt = ?, agent_role = ?, agent_personality = ?, greeting_message = ?
+            WHERE tenant_id = ?
+            """,
+            (
+                config.system_prompt,
+                config.agent_role,
+                config.agent_personality,
+                config.greeting_message,
+                tenant_id,
+            ),
+        )
 
         # Deactivate old config
         conn.execute(

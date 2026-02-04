@@ -157,7 +157,7 @@ class MultiPrimitiveProcessor(FrameProcessor):
 
         if state == ObjectiveState.CONFIRMING:
             captured_value = primitive.state_machine.captured_value
-            prompt = primitive.get_confirmation_prompt(captured_value)
+            prompt = await primitive._contextual_confirmation(captured_value)
             await self.push_frame(TextFrame(text=prompt), direction)
 
         elif state == ObjectiveState.ELICITING:

@@ -46,10 +46,12 @@ class ObjectiveGraph:
         graph_config: Dict[str, Any],
         tenant_context: Dict[str, Any],
         event_emitter: Optional[EventEmitter] = None,
+        system_prompt: Optional[str] = None,
     ):
         self.graph_config = graph_config
         self.tenant_context = tenant_context
         self.event_emitter = event_emitter
+        self.system_prompt = system_prompt
 
         self.nodes: Dict[str, GraphNode] = {}
         self.completed_nodes: List[str] = []

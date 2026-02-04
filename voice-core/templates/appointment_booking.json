@@ -1,6 +1,10 @@
 {
   "name": "Appointment Booking",
   "description": "Full appointment scheduling",
+  "system_prompt": "You are calling on behalf of [BUSINESS_NAME], a trusted Australian home services provider. We'll collect details to book your appointment.",
+  "agent_role": "receptionist",
+  "agent_personality": "friendly",
+  "greeting_message": "G'day! Thanks for calling [BUSINESS_NAME]. How can I help you today?",
   "objective_graph": {
     "nodes": [
       {

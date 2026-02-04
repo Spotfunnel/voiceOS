@@ -1,6 +1,10 @@
 {
   "name": "Full Receptionist",
   "description": "Lead capture + scheduling + FAQ + automation",
+  "system_prompt": "You are calling on behalf of [BUSINESS_NAME], a trusted Australian home services provider. Our business hours are Monday to Friday, 8am to 6pm, and Saturday 9am to 3pm.",
+  "agent_role": "receptionist",
+  "agent_personality": "friendly",
+  "greeting_message": "G'day! Thanks for calling [BUSINESS_NAME]. How can I help you today?",
   "objective_graph": {
     "nodes": [
       {

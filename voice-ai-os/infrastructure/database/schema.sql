@@ -26,6 +26,10 @@ CREATE TABLE tenants (
   config_version VARCHAR(50),
   status VARCHAR(50) DEFAULT 'active' NOT NULL CHECK (status IN ('active', 'inactive', 'suspended')),
   metadata JSONB DEFAULT '{}', -- Additional tenant metadata (billing info, contact, etc.)
+  system_prompt TEXT, -- Layer 2: business-specific instructions
+  agent_role VARCHAR(50) DEFAULT 'receptionist',
+  agent_personality VARCHAR(50) DEFAULT 'friendly',
+  greeting_message TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );

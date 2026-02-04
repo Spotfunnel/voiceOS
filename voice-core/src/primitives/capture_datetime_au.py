@@ -86,6 +86,10 @@ class CaptureDatetimeAU(BaseCaptureObjective):
         # Track if we're clarifying ambiguity
         self.is_clarifying_ambiguity = False
         self.ambiguous_date_str: Optional[str] = None
+
+        # Component tracking for incremental repair
+        self.date_str: Optional[str] = None
+        self.time_str: Optional[str] = None
     
     def get_elicitation_prompt(self) -> str:
         """Get prompt to ask for date/time"""
@@ -99,6 +103,17 @@ class CaptureDatetimeAU(BaseCaptureObjective):
             return "Sorry, I didn't catch that. Could you please repeat the date and time?"
         else:
             return "Let's try again. Please say the date and time slowly and clearly."
+
+    async def _update_components_from_value(self, value: str, confidence: float) -> None:
+        parts = value.split()
+        if len(parts) >= 2:
+            self.date_str = parts[0]
+            self.time_str = parts[1]
+            self.captured_components = {"date": self.date_str, "time": self.time_str}
+            self.component_confidence = {"date": confidence, "time": confidence}
+        else:
+            self.captured_components = {}
+            self.component_confidence = {}
     
     def _get_ambiguity_clarification_prompt(self) -> str:
         """Get prompt to clarify ambiguous date"""
@@ -381,13 +396,16 @@ class CaptureDatetimeAU(BaseCaptureObjective):
                 else:
                     time_formatted = f"{hour_12}:{minute:02d} {am_pm}"
                 
-                return f"Got it, {day} {month} {year} at {time_formatted}. Is that correct?"
+                return f"Great, {day} {month} {year} at {time_formatted}. Is that correct?"
             
         except Exception as e:
             logger.warning(f"Error formatting confirmation prompt: {e}")
         
         # Fallback
         return f"Got it, {value}. Is that correct?"
+
+    async def _contextual_confirmation(self, value: str) -> str:
+        return self.get_confirmation_prompt(value)
     
     def normalize_value(self, value: str) -> str:
         """
@@ -496,3 +514,28 @@ class CaptureDatetimeAU(BaseCaptureObjective):
         
         # Extract date/time from remaining text
         return await self.extract_value(text)
+
+    async def _incremental_repair(self, transcription: str) -> Optional[str]:
+        text = transcription.lower().strip()
+
+        if "start over" in text or "forget that" in text:
+            return None
+
+        full = await self.extract_value(text)
+        if full:
+            return full
+
+        date_str = await self._extract_date(text)
+        time_str = await self._extract_time(text)
+
+        if not date_str and not time_str:
+            return None
+
+        if date_str:
+            self.date_str = date_str
+        if time_str:
+            self.time_str = time_str
+
+        if self.date_str and self.time_str:
+            return f"{self.date_str} {self.time_str}"
+        return None

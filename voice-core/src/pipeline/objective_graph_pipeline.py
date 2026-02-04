@@ -18,6 +18,7 @@ from ..integrations.n8n_client import (
 from ..orchestration.objective_graph import ObjectiveGraph
 from ..processors.multi_asr_processor import MultiASRProcessor
 from ..pipeline.frame_observer import PipelineFrameObserver
+from ..prompts import LAYER_1_CORE_PROMPT
 from ..tts.multi_provider_tts import MultiProviderTTS
 from ..transports.daily_transport import DailyTransportWrapper
 
@@ -76,10 +77,18 @@ def build_objective_graph_pipeline(
     """
     _register_n8n_event_listener(event_emitter, tenant_config)
 
+    layer2_prompt = tenant_config.get("system_prompt", "")
+    combined_prompt = (
+        f"{LAYER_1_CORE_PROMPT}\n\n=== BUSINESS-SPECIFIC CONTEXT ===\n\n{layer2_prompt}".strip()
+        if layer2_prompt
+        else LAYER_1_CORE_PROMPT
+    )
+
     graph = ObjectiveGraph(
         graph_config=tenant_config["objective_graph"],
         tenant_context=tenant_config,
         event_emitter=event_emitter,
+        system_prompt=combined_prompt,
     )
 
     processor = graph.build_processor_for_node(graph.entry_node_id)

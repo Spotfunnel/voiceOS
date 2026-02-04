@@ -83,7 +83,11 @@ def _load_tenant_config(tenant_id: str) -> Optional[Dict[str, Any]]:
                 SELECT
                     oc.objective_graph,
                     t.locale,
-                    t.metadata
+                    t.metadata,
+                    t.system_prompt,
+                    t.agent_role,
+                    t.agent_personality,
+                    t.greeting_message
                 FROM tenants t
                 JOIN objective_configs oc ON t.tenant_id = oc.tenant_id
                 WHERE t.tenant_id = %s AND oc.active = true
@@ -102,6 +106,10 @@ def _load_tenant_config(tenant_id: str) -> Optional[Dict[str, Any]]:
                 "locale": row.get("locale") or "en-AU",
                 "service_catalog": metadata.get("service_catalog", []),
                 "faq_knowledge_base": metadata.get("faq_knowledge_base", []),
+                "system_prompt": row.get("system_prompt"),
+                "agent_role": row.get("agent_role", "receptionist"),
+                "agent_personality": row.get("agent_personality", "friendly"),
+                "greeting_message": row.get("greeting_message"),
             }
     except Exception as exc:
         logger.exception("Failed to load tenant config: %s", exc)

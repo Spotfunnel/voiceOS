@@ -94,6 +94,10 @@ class BaseCaptureObjective(ABC):
             locale=locale,
             max_retries=max_retries
         )
+
+        # Component-level state (used for incremental repair)
+        self.captured_components: Dict[str, Any] = {}
+        self.component_confidence: Dict[str, float] = {}
         
     async def execute(self) -> CaptureResult:
         """
@@ -177,6 +181,12 @@ class BaseCaptureObjective(ABC):
             if self.state_machine.state == ObjectiveState.ELICITING:
                 # Extract value from transcription
                 extracted_value = await self.extract_value(transcription)
+
+                if extracted_value:
+                    await self._update_components_from_value(
+                        extracted_value, confidence=confidence
+                    )
+                    self.state_machine.metadata["components"] = self.captured_components
                 
                 # Transition to CAPTURED state
                 self.state_machine.transition(
@@ -218,10 +228,14 @@ class BaseCaptureObjective(ABC):
                     self.state_machine.transition("complete")
                     return self._build_result()
                 else:
-                    # User corrected - extract new value
-                    corrected_value = await self.extract_correction(transcription)
+                    # User corrected - attempt incremental repair first
+                    corrected_value = await self._incremental_repair(transcription)
                     
                     if corrected_value:
+                        await self._update_components_from_value(
+                            corrected_value, confidence=confidence
+                        )
+                        self.state_machine.metadata["components"] = self.captured_components
                         self.state_machine.transition(
                             "user_corrected",
                             new_value=corrected_value
@@ -276,7 +290,7 @@ class BaseCaptureObjective(ABC):
     
     async def _confirm(self) -> None:
         """Confirm captured value with user"""
-        prompt = self.get_confirmation_prompt(self.state_machine.captured_value)
+        prompt = await self._contextual_confirmation(self.state_machine.captured_value)
         logger.info(f"[{self.objective_type}] CONFIRM: {prompt}")
         # In real implementation, this would send prompt to TTS
     
@@ -369,3 +383,29 @@ class BaseCaptureObjective(ABC):
             Corrected value or None if extraction failed
         """
         pass
+
+    # Optional overrides (default implementations)
+
+    async def _contextual_confirmation(self, value: str) -> str:
+        """
+        Generate a contextual confirmation prompt (non-robotic).
+        Default uses get_confirmation_prompt.
+        """
+        return self.get_confirmation_prompt(value)
+
+    async def _incremental_repair(self, transcription: str) -> Optional[str]:
+        """
+        Attempt incremental repair from a correction utterance.
+        Default falls back to full correction extraction.
+        """
+        return await self.extract_correction(transcription)
+
+    async def _update_components_from_value(
+        self, value: str, confidence: float
+    ) -> None:
+        """
+        Update component-level state from a captured value.
+        Subclasses can override for component tracking.
+        """
+        self.captured_components = {}
+        self.component_confidence = {}

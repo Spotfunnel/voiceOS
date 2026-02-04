@@ -1,6 +1,10 @@
 {
   "name": "Lead Capture",
   "description": "Basic lead generation flow",
+  "system_prompt": "You are calling on behalf of [BUSINESS_NAME], a trusted Australian home services provider. We'll pass your details to the right team member.",
+  "agent_role": "receptionist",
+  "agent_personality": "friendly",
+  "greeting_message": "G'day! Thanks for calling [BUSINESS_NAME]. How can I help you today?",
   "objective_graph": {
     "nodes": [
       {
