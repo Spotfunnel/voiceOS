@@ -4,6 +4,103 @@
   "objective_graph": {
     "nodes": [
       {
+        "id": "greeting",
+        "type": "sequence",
+        "primitives": [
+          "faq_handler_au"
+        ],
+        "on_success": "capture_lead",
+        "on_failure": "capture_lead"
+      },
+      {
+        "id": "capture_lead",
+        "type": "sequence",
+        "primitives": [
+          "capture_name_au",
+          "capture_phone_au"
+        ],
+        "on_success": "schedule_appointment",
+        "on_failure": "offer_callback"
+      },
+      {
+        "id": "schedule_appointment",
+        "type": "sequence",
+        "primitives": [
+          "capture_service_au",
+          "capture_datetime_au",
+          "capture_address_au"
+        ],
+        "on_success": "trigger_automation",
+        "on_failure": "capture_lead"
+      },
+      {
+        "id": "trigger_automation",
+        "type": "webhook",
+        "webhook_name": "appointment_automation",
+        "on_success": "confirm_booking",
+        "on_failure": "manual_fallback"
+      },
+      {
+        "id": "confirm_booking",
+        "type": "terminal",
+        "message": "Perfect! Your appointment is confirmed. We'll see you then!"
+      },
+      {
+        "id": "manual_fallback",
+        "type": "terminal",
+        "message": "Your appointment is noted. Someone will call you to confirm."
+      },
+      {
+        "id": "offer_callback",
+        "type": "terminal",
+        "message": "Would you like someone to call you back?"
+      }
+    ]
+  },
+  "service_catalog": [
+    {
+      "id": "plumbing",
+      "name": "Plumbing",
+      "keywords": ["plumber", "plumbing", "leak", "pipe", "drain", "toilet", "tap"]
+    },
+    {
+      "id": "electrical",
+      "name": "Electrical",
+      "keywords": ["electrician", "electrical", "wiring", "outlet", "light", "power"]
+    },
+    {
+      "id": "hvac",
+      "name": "HVAC",
+      "keywords": ["heating", "cooling", "hvac", "air conditioning", "furnace", "ac"]
+    }
+  ],
+  "faq_knowledge_base": [
+    {
+      "question": "What are your hours?",
+      "keywords": ["hours", "open", "close", "time", "operating"],
+      "answer": "We're open Monday to Friday, 8am to 6pm, and Saturday 9am to 3pm."
+    },
+    {
+      "question": "Do you have emergency service?",
+      "keywords": ["emergency", "urgent", "after hours", "weekend"],
+      "answer": "Yes, we offer 24/7 emergency service. There is a call-out fee for after-hours service."
+    }
+  ],
+  "n8n_workflows": [
+    {
+      "name": "appointment_automation",
+      "webhook_url": "${N8N_BASE_URL}/webhook/voice-core-confirmation",
+      "description": "Sends confirmation email and creates calendar event",
+      "triggers_on": ["appointment_scheduled"]
+    }
+  ]
+}
+{
+  "name": "Full Receptionist",
+  "description": "Lead capture + scheduling + FAQ + automation",
+  "objective_graph": {
+    "nodes": [
+      {
         "id": "capture_lead",
         "type": "sequence",
         "primitives": ["capture_name_au", "capture_phone_au", "capture_email_au"],

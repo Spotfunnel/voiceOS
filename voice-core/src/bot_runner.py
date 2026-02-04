@@ -36,12 +36,18 @@ from .transports.twilio_transport import TwilioTransportWrapper
 from .pipeline.voice_pipeline import build_voice_pipeline
 from .events.event_emitter import EventEmitter
 from .api.twilio_webhook import router as twilio_router
+from .api.tenant_config import router as tenant_config_router
+from .api.onboarding import router as onboarding_router
+from .api.dashboard import router as dashboard_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Voice Core Bot Runner", version="1.0.0")
 app.include_router(twilio_router, prefix="/webhooks", tags=["webhooks"])
+app.include_router(tenant_config_router)
+app.include_router(onboarding_router)
+app.include_router(dashboard_router)
 DEFAULT_SYSTEM_PROMPT = "You are a helpful AI assistant for SpotFunnel."
 
 # Global state

@@ -1,0 +1,31 @@
+{
+  "name": "Lead Capture",
+  "description": "Basic lead generation flow",
+  "objective_graph": {
+    "nodes": [
+      {
+        "id": "capture_lead",
+        "type": "sequence",
+        "primitives": [
+          "capture_name_au",
+          "capture_phone_au",
+          "capture_email_au"
+        ],
+        "on_success": "thank_you",
+        "on_failure": "offer_callback"
+      },
+      {
+        "id": "thank_you",
+        "type": "terminal",
+        "message": "Thank you! Someone will be in touch soon."
+      },
+      {
+        "id": "offer_callback",
+        "type": "terminal",
+        "message": "Would you like someone to call you back?"
+      }
+    ]
+  },
+  "service_catalog": [],
+  "faq_knowledge_base": []
+}
