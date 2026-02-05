@@ -5,6 +5,7 @@
   "agent_role": "receptionist",
   "agent_personality": "friendly",
   "greeting_message": "G'day! Thanks for calling [BUSINESS_NAME]. How can I help you today?",
+  "static_knowledge": "COMPANY INFORMATION\\n\\nBusiness Name: [BUSINESS_NAME]\\nHours: Monday-Friday 8am-6pm, Saturday 9am-3pm\\nPhone: (02) 1234 5678\\nEmail: info@[BUSINESS_DOMAIN].com.au\\nService Area: Greater Sydney Metro (within 30km of CBD)\\n\\nSERVICES\\n\\nEmergency Callouts: 24/7 emergency service available for burst pipes, gas leaks, and blocked drains\\nGeneral Repairs: Tap repairs, toilet repairs, hot water systems\\nMaintenance: Annual plumbing inspections and preventative maintenance packages\\n\\nPOLICIES\\n\\nCallout Fee: Standard hours $99, after hours $149 (waived if repair booked)\\nPayment: Cash, card, EFTPOS, invoice for approved accounts\\nCancellation: 24-hour notice required or cancellation fee applies\\nWarranty: 12 months on workmanship\\n\\nCOMMON QUESTIONS\\n\\nQ: Do you offer same-day service?\\nA: Yes, for emergencies we aim for a 2-4 hour response within our service area.\\n\\nQ: What areas do you service?\\nA: Greater Sydney metro, within 30km of Sydney CBD.\\n\\nQ: Are you licensed and insured?\\nA: Yes, we are fully licensed and insured (License #123456).\\n",
   "objective_graph": {
     "nodes": [
       {

@@ -5,6 +5,7 @@
   "agent_role": "receptionist",
   "agent_personality": "friendly",
   "greeting_message": "G'day! Thanks for calling [BUSINESS_NAME]. How can I help you today?",
+  "static_knowledge": "COMPANY INFORMATION\\n\\nBusiness Name: [BUSINESS_NAME]\\nHours: Monday-Friday 8am-6pm, Saturday 9am-2pm\\nPhone: (02) 1234 5678\\nEmail: bookings@[BUSINESS_DOMAIN].com.au\\nService Area: Sydney Metro, North Shore, and Northern Beaches\\n\\nSERVICES\\n\\nAppointments: Same-day visits available for emergencies, next-day for general work\\nPriority: Priority for maintenance customers with a service agreement\\nServices: Plumbing, electrical, HVAC installations and repair\\n\\nPOLICIES\\n\\nCancellation: 24-hour notice requested, otherwise standard fee applies\\nCallout Fee: $99 daytime, $149 after hours (waived for all-day service plan)\\nPayment: Card, cash, invoice for approved customers\\n\\nFAQ\\n\\nQ: What happens after I book?\\nA: We send a confirmation SMS and email, then our scheduler calls to confirm details.\\n\\nQ: Do you offer weekend support?\\nA: Weekend slots are limited but available for emergencies and service plan holders.\\n",
   "objective_graph": {
     "nodes": [
       {

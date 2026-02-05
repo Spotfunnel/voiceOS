@@ -44,6 +44,7 @@ class TenantConfig(BaseModel):
     agent_role: str = "receptionist"
     agent_personality: str = "friendly"
     greeting_message: Optional[str] = None
+    static_knowledge: Optional[str] = None
     objective_graph: Dict[str, Any]
     service_catalog: List[ServiceCatalogItem] = Field(default_factory=list)
     faq_knowledge_base: List[FAQItem] = Field(default_factory=list)
@@ -82,6 +83,7 @@ def _to_tenant_config(tenant_row, config_row, template_data) -> TenantConfig:
         agent_role=tenant_row.get("agent_role", "receptionist"),
         agent_personality=tenant_row.get("agent_personality", "friendly"),
         greeting_message=tenant_row.get("greeting_message"),
+        static_knowledge=tenant_row.get("static_knowledge"),
         objective_graph=json.loads(config_row["objective_graph"]) if isinstance(config_row["objective_graph"], str) else config_row["objective_graph"],
         service_catalog=template_data.get("service_catalog", []),
         faq_knowledge_base=template_data.get("faq_knowledge_base", []),
@@ -96,7 +98,8 @@ async def get_tenant_config(tenant_id: str):
         tenant = conn.execute(
             """
             SELECT tenant_id, business_name, phone_number, locale, created_at,
-                   system_prompt, agent_role, agent_personality, greeting_message
+                   system_prompt, agent_role, agent_personality, greeting_message,
+                   static_knowledge
             FROM tenants WHERE tenant_id = ?
             """,
             (tenant_id,),
@@ -133,8 +136,9 @@ async def create_tenant(request: CreateTenantRequest):
             """
             INSERT INTO tenants (
                 tenant_id, business_name, phone_number, created_at,
-                system_prompt, agent_role, agent_personality, greeting_message
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                system_prompt, agent_role, agent_personality, greeting_message,
+                static_knowledge
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 tenant_id,
@@ -145,6 +149,7 @@ async def create_tenant(request: CreateTenantRequest):
                 template.get("agent_role", "receptionist"),
                 template.get("agent_personality", "friendly"),
                 template.get("greeting_message"),
+                template.get("static_knowledge"),
             ),
         )
         conn.execute(
@@ -170,6 +175,7 @@ async def create_tenant(request: CreateTenantRequest):
             agent_role=template.get("agent_role", "receptionist"),
             agent_personality=template.get("agent_personality", "friendly"),
             greeting_message=template.get("greeting_message"),
+            static_knowledge=template.get("static_knowledge"),
             objective_graph=template["objective_graph"],
             service_catalog=template.get("service_catalog", []),
             faq_knowledge_base=template.get("faq_knowledge_base", []),
@@ -195,7 +201,7 @@ async def update_tenant_config(tenant_id: str, config: TenantConfig):
         conn.execute(
             """
             UPDATE tenants
-            SET system_prompt = ?, agent_role = ?, agent_personality = ?, greeting_message = ?
+            SET system_prompt = ?, agent_role = ?, agent_personality = ?, greeting_message = ?, static_knowledge = ?
             WHERE tenant_id = ?
             """,
             (
@@ -203,6 +209,7 @@ async def update_tenant_config(tenant_id: str, config: TenantConfig):
                 config.agent_role,
                 config.agent_personality,
                 config.greeting_message,
+                config.static_knowledge,
                 tenant_id,
             ),
         )

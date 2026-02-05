@@ -106,6 +106,32 @@ How it works:
 2. Smart Turn analyzes full audio segment for turn completion
 3. Combines acoustic features (prosody, intonation) with linguistic cues
 
+### Knowledge Base (Tier 1: Pre-Loaded Static)
+
+V1 supports Tier 1 knowledge bases so you can load FAQ and company info directly into the system prompt for zero-latency retrieval.
+
+**Features:**
+- Add FAQ/company info during tenant configuration
+- Knowledge loaded at startup (0ms retrieval cost)
+- Agent answers naturally from the preloaded knowledge
+- Prompt caching reduces repetition cost by 50-90%
+
+**Size Limit:** 10,000 tokens (~7,500 words, ~20-25 pages)
+
+**Configuration:**
+```json
+{
+  "static_knowledge": "COMPANY INFO:\\nHours: 9am-5pm Mon-Fri\\nSERVICES: Plumbing, electrical"
+}
+```
+
+**Cost:** ~$0.003/call with provider prompt caching (90% of tokens cached)
+
+**Upgrade Path:** For knowledge >10K tokens, migrate to Tier 3 (vector database) in V2.
+
+**Research:** [`voice-ai-os/research/13-knowledge-bases.md`](../voice-ai-os/research/13-knowledge-bases.md)  
+**Guide:** [`voice-ai-os/docs/KNOWLEDGE-BASE-GUIDE.md`](../voice-ai-os/docs/KNOWLEDGE-BASE-GUIDE.md)
+
 ### 3. Run Test Call
 
 ```bash

@@ -19,6 +19,7 @@ from ..orchestration.objective_graph import ObjectiveGraph
 from ..processors.multi_asr_processor import MultiASRProcessor
 from ..pipeline.frame_observer import PipelineFrameObserver
 from ..prompts import LAYER_1_CORE_PROMPT
+from ..prompts.knowledge_combiner import combine_prompts
 from ..tts.multi_provider_tts import MultiProviderTTS
 from ..transports.daily_transport import DailyTransportWrapper
 
@@ -77,11 +78,10 @@ def build_objective_graph_pipeline(
     """
     _register_n8n_event_listener(event_emitter, tenant_config)
 
-    layer2_prompt = tenant_config.get("system_prompt", "")
-    combined_prompt = (
-        f"{LAYER_1_CORE_PROMPT}\n\n=== BUSINESS-SPECIFIC CONTEXT ===\n\n{layer2_prompt}".strip()
-        if layer2_prompt
-        else LAYER_1_CORE_PROMPT
+    combined_prompt = combine_prompts(
+        layer1_core_prompt=LAYER_1_CORE_PROMPT,
+        static_knowledge=tenant_config.get("static_knowledge"),
+        layer2_system_prompt=tenant_config.get("system_prompt"),
     )
 
     graph = ObjectiveGraph(

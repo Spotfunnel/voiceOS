@@ -30,6 +30,7 @@ CREATE TABLE tenants (
   agent_role VARCHAR(50) DEFAULT 'receptionist',
   agent_personality VARCHAR(50) DEFAULT 'friendly',
   greeting_message TEXT,
+  static_knowledge TEXT, -- Tier 1: Pre-loaded knowledge (FAQ, company info, max 10K tokens)
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
@@ -38,6 +39,9 @@ CREATE TABLE tenants (
 CREATE INDEX idx_tenants_phone_number ON tenants(phone_number);
 CREATE INDEX idx_tenants_status ON tenants(status);
 CREATE INDEX idx_tenants_created_at ON tenants(created_at DESC);
+
+COMMENT ON COLUMN tenants.static_knowledge IS
+'Tier 1 pre-loaded static knowledge (FAQ, company info, policies). Max 10K tokens. Loaded into system prompt for zero-latency retrieval.';
 
 -- =============================================================================
 -- OBJECTIVE CONFIGURATIONS TABLE

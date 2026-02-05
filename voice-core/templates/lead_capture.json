@@ -5,6 +5,7 @@
   "agent_role": "receptionist",
   "agent_personality": "friendly",
   "greeting_message": "G'day! Thanks for calling [BUSINESS_NAME]. How can I help you today?",
+  "static_knowledge": "COMPANY INFORMATION\\n\\nBusiness Name: [BUSINESS_NAME]\\nHours: Monday-Friday 8am-5pm\\nPhone: (02) 1234 5678\\nEmail: info@[BUSINESS_DOMAIN].com.au\\nService Area: Greater Sydney inland suburbs\\n\\nSERVICES\\n\\nEmergency Callouts: Available weekdays 8am-6pm, weekends for urgent jobs\\nGeneral Repairs: Tap repairs, blocked drains, toilet repairs\\nMaintenance: Preventative plumbing and electrical checkups\\n\\nPOLICIES\\n\\nCallout Fee: $89 standard hours, $149 after hours (waived if booked)\\nPayment: Cash, card, bank transfer, invoice for approved accounts\\nCancellation: 24-hour notice required to avoid fee\\n\\nFAQ\\n\\nQ: Do you do electrical work?\\nA: Yes, we partner with licensed electricians for combined jobs.\\n\\nQ: What areas do you cover?\\nA: Sydney CBD, Inner West, Eastern Suburbs, and North Shore.\\n",
   "objective_graph": {
     "nodes": [
       {
