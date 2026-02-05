@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Copy, CheckCircle, AlertCircle, FileCode, RefreshCw } from 'lucide-react';
 import type { TenantConfig } from '@/types/config';
 import { generateYAML, validateConfig } from '@/utils/configGenerator';
@@ -15,18 +15,18 @@ export default function ConfigPreview({ config }: ConfigPreviewProps) {
   const [copied, setCopied] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
 
-  useEffect(() => {
-    if (autoRefresh) {
-      updatePreview();
-    }
-  }, [config, autoRefresh]);
-
-  const updatePreview = () => {
+  const updatePreview = useCallback(() => {
     const yaml = generateYAML(config);
     setYamlContent(yaml);
     const validation = validateConfig(config);
     setValidationResult(validation);
-  };
+  }, [config]);
+
+  useEffect(() => {
+    if (autoRefresh) {
+      updatePreview();
+    }
+  }, [autoRefresh, updatePreview]);
 
   const handleCopy = async () => {
     try {

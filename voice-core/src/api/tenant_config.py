@@ -100,7 +100,7 @@ async def get_tenant_config(tenant_id: str):
             SELECT tenant_id, business_name, phone_number, locale, created_at,
                    system_prompt, agent_role, agent_personality, greeting_message,
                    static_knowledge
-            FROM tenants WHERE tenant_id = ?
+            FROM tenants WHERE tenant_id = %s
             """,
             (tenant_id,),
         ).fetchone()
@@ -108,7 +108,7 @@ async def get_tenant_config(tenant_id: str):
             raise HTTPException(status_code=404, detail="Tenant not found")
 
         config = conn.execute(
-            "SELECT objective_graph FROM objective_configs WHERE tenant_id = ? AND active = true",
+            "SELECT objective_graph FROM objective_configs WHERE tenant_id = %s AND active = true",
             (tenant_id,),
         ).fetchone()
         if not config:
@@ -138,7 +138,7 @@ async def create_tenant(request: CreateTenantRequest):
                 tenant_id, business_name, phone_number, created_at,
                 system_prompt, agent_role, agent_personality, greeting_message,
                 static_knowledge
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 tenant_id,
@@ -155,7 +155,7 @@ async def create_tenant(request: CreateTenantRequest):
         conn.execute(
             """
             INSERT INTO objective_configs (tenant_id, version, objective_graph, active, schema_version)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
             """,
             (
                 tenant_id,
@@ -193,7 +193,10 @@ async def create_tenant(request: CreateTenantRequest):
 async def update_tenant_config(tenant_id: str, config: TenantConfig):
     conn = get_db_connection()
     try:
-        tenant = conn.execute("SELECT tenant_id FROM tenants WHERE tenant_id = ?", (tenant_id,)).fetchone()
+        tenant = conn.execute(
+            "SELECT tenant_id FROM tenants WHERE tenant_id = %s",
+            (tenant_id,),
+        ).fetchone()
         if not tenant:
             raise HTTPException(status_code=404, detail="Tenant not found")
 
@@ -201,8 +204,8 @@ async def update_tenant_config(tenant_id: str, config: TenantConfig):
         conn.execute(
             """
             UPDATE tenants
-            SET system_prompt = ?, agent_role = ?, agent_personality = ?, greeting_message = ?, static_knowledge = ?
-            WHERE tenant_id = ?
+            SET system_prompt = %s, agent_role = %s, agent_personality = %s, greeting_message = %s, static_knowledge = %s
+            WHERE tenant_id = %s
             """,
             (
                 config.system_prompt,
@@ -216,13 +219,13 @@ async def update_tenant_config(tenant_id: str, config: TenantConfig):
 
         # Deactivate old config
         conn.execute(
-            "UPDATE objective_configs SET active = false WHERE tenant_id = ?",
+            "UPDATE objective_configs SET active = false WHERE tenant_id = %s",
             (tenant_id,),
         )
         
         # Get next version
         max_version = conn.execute(
-            "SELECT COALESCE(MAX(version), 0) FROM objective_configs WHERE tenant_id = ?",
+            "SELECT COALESCE(MAX(version), 0) FROM objective_configs WHERE tenant_id = %s",
             (tenant_id,),
         ).fetchone()[0]
         
@@ -230,7 +233,7 @@ async def update_tenant_config(tenant_id: str, config: TenantConfig):
         conn.execute(
             """
             INSERT INTO objective_configs (tenant_id, version, objective_graph, active, schema_version)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
             """,
             (
                 tenant_id,

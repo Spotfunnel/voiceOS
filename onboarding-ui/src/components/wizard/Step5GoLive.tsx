@@ -11,7 +11,8 @@ export default function Step5GoLive({ tenantName, onGoLive, onBack }: Props) {
     <div className="step-form">
       <h2>Go Live</h2>
       <p>
-        Review the configuration for {tenantName}. When you're ready, activate phone routing and automation.
+        Review the configuration for {tenantName}. When you are ready, activate
+        phone routing and automation.
       </p>
       <div className="form-actions">
         <button type="button" className="btn-secondary" onClick={onBack}>

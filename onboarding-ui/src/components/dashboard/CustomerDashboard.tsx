@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import CallLogTable from "./CallLogTable";
 import LeadsList from "./LeadsList";
@@ -15,11 +15,11 @@ export default function CustomerDashboard() {
   const [data, setData] = useState<DashboardData>({ calls: [], leads: [], activeCallCount: 0 });
   const [activeTab, setActiveTab] = useState("calls");
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     const response = await fetch(`/api/dashboard/${tenantId}`);
     const body = await response.json();
     setData(body);
-  };
+  }, [tenantId]);
 
   useEffect(() => {
     if (tenantId) {
@@ -27,7 +27,7 @@ export default function CustomerDashboard() {
       const interval = setInterval(loadDashboardData, 30000);
       return () => clearInterval(interval);
     }
-  }, [tenantId]);
+  }, [tenantId, loadDashboardData]);
 
   return (
     <div className="customer-dashboard">

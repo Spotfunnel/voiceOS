@@ -1,7 +1,7 @@
 """
 Onboarding wizard backend API.
 
-Tracks operator progress through a 5-step configuration flow.
+Tracks operator progress through a 6-step configuration flow.
 """
 
 from __future__ import annotations
@@ -14,6 +14,10 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from .tenant_config import CreateTenantRequest, create_tenant, update_tenant_config
+from ..prompts.knowledge_combiner import (
+    KnowledgeTooLargeError,
+    validate_static_knowledge,
+)
 
 router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
 
@@ -22,10 +26,15 @@ class OnboardingSession(BaseModel):
     session_id: str
     current_step: int
     business_name: Optional[str] = None
+    business_type: Optional[str] = None
     phone_number: Optional[str] = None
     contact_email: Optional[str] = None
+    state: Optional[str] = None
+    timezone: Optional[str] = None
+    business_hours: Optional[str] = None
     template_id: Optional[str] = None
     customizations: Dict[str, Any] = {}
+    static_knowledge: Optional[str] = None
     test_call_completed: bool = False
     is_live: bool = False
     created_at: datetime
@@ -68,21 +77,27 @@ async def update_onboarding_step(session_id: str, step: int, data: Dict[str, Any
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    if step < 1 or step > 5:
+    if step < 1 or step > 6:
         raise HTTPException(status_code=400, detail="Invalid step")
 
     if step == 1:
         session.business_name = data.get("business_name")
+        session.business_type = data.get("business_type")
         session.phone_number = data.get("phone_number")
         session.contact_email = data.get("contact_email")
+        session.state = data.get("state")
+        session.timezone = data.get("timezone")
+        session.business_hours = data.get("business_hours")
     elif step == 2:
         session.template_id = data.get("template_id")
     elif step == 3:
         session.customizations = data
     elif step == 4:
-        session.test_call_completed = data.get("completed", False)
+        session.static_knowledge = data.get("static_knowledge")
     elif step == 5:
-        session.is_live = data.get("is_live", False)
+        session.test_call_completed = data.get("test_call_completed", False)
+    elif step == 6:
+        session.is_live = data.get("is_live", session.is_live)
 
     session.current_step = step
     _save_session(session)
@@ -110,14 +125,41 @@ async def complete_onboarding(session_id: str):
 
     if session.customizations:
         customizations = session.customizations
-        tenant.service_catalog = customizations.get("service_catalog", tenant.service_catalog)
-        tenant.faq_knowledge_base = customizations.get("faq_knowledge_base", tenant.faq_knowledge_base)
-        tenant.system_prompt = customizations.get("system_prompt", tenant.system_prompt)
+        tenant.service_catalog = customizations.get(
+            "service_catalog", tenant.service_catalog
+        )
+        tenant.faq_knowledge_base = customizations.get(
+            "faq_knowledge_base", tenant.faq_knowledge_base
+        )
+        tenant.system_prompt = customizations.get(
+            "system_prompt", tenant.system_prompt
+        )
         tenant.agent_role = customizations.get("agent_role", tenant.agent_role)
-        tenant.agent_personality = customizations.get("agent_personality", tenant.agent_personality)
-        tenant.greeting_message = customizations.get("greeting_message", tenant.greeting_message)
+        tenant.agent_personality = customizations.get(
+            "agent_personality", tenant.agent_personality
+        )
+        tenant.greeting_message = customizations.get(
+            "greeting_message", tenant.greeting_message
+        )
+        await update_tenant_config(tenant.tenant_id, tenant)
+
+    if session.static_knowledge:
+        tenant.static_knowledge = session.static_knowledge
         await update_tenant_config(tenant.tenant_id, tenant)
 
     session.is_live = True
     _save_session(session)
     return {"tenant_id": tenant.tenant_id, "session_id": session.session_id}
+
+
+class KnowledgeValidationRequest(BaseModel):
+    knowledge: str
+
+
+@router.post("/validate-knowledge")
+async def validate_knowledge(payload: KnowledgeValidationRequest):
+    try:
+        tokens = validate_static_knowledge(payload.knowledge)
+    except KnowledgeTooLargeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"tokens": tokens}
