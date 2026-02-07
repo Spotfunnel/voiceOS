@@ -49,10 +49,10 @@ Successfully migrated from Twilio to Telnyx for telephony integration with the f
 #### `voice-core/.env`
 - **Added:**
   ```bash
-  TELNYX_API_KEY=KEY019C37E6FE715E42F71F9B58126C5FDE_sgdc70UC5jpUtV5aTLZl8X
-  TELNYX_CONNECTION_ID=2889961366351775467
+  TELNYX_API_KEY=<your-api-key>
+  TELNYX_CONNECTION_ID=<your-connection-id>
   TELNYX_SAMPLE_RATE=16000
-  NGROK_URL=https://antrorse-fluently-beulah.ngrok-free.dev
+  NGROK_URL=<your-ngrok-url>
   ```
 - **Removed:** All Twilio credentials (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
@@ -80,9 +80,9 @@ Successfully migrated from Twilio to Telnyx for telephony integration with the f
 ### Your Credentials
 
 ```bash
-API Key: KEY019C37E6FE715E42F71F9B58126C5FDE_sgdc70UC5jpUtV5aTLZl8X
-Connection ID: 2889961366351775467
-Ngrok URL: https://antrorse-fluently-beulah.ngrok-free.dev
+API Key: <stored-in-.env>
+Connection ID: <stored-in-.env>
+Ngrok URL: <stored-in-.env>
 ```
 
 ### Webhook URL
@@ -90,7 +90,7 @@ Ngrok URL: https://antrorse-fluently-beulah.ngrok-free.dev
 Configure this in your Telnyx portal:
 
 ```
-https://antrorse-fluently-beulah.ngrok-free.dev/api/telnyx/webhook
+<your-ngrok-url>/api/telnyx/webhook
 ```
 
 **⚠️ CRITICAL - PRODUCTION DEPLOYMENT:**
