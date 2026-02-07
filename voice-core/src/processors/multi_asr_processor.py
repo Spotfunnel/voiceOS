@@ -80,6 +80,9 @@ class MultiASRProcessor(FrameProcessor):
 
     async def process_frame(self, frame: Frame, direction):
         if isinstance(frame, AudioRawFrame):
+            print(
+                f"MultiASR received audio frame: {len(frame.audio)} bytes (sample_rate={frame.sample_rate})"
+            )
             if not self.multi_asr_enabled:
                 await self.push_frame(frame, direction)
                 return

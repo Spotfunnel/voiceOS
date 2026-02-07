@@ -99,6 +99,7 @@ class MultiProviderTTS(FrameProcessor):
         # Try Cartesia first (primary, lowest cost)
         try:
             logger.debug(f"Trying Cartesia TTS for text: {text[:50]}...")
+            logger.info("TTS input text: %r", text)
             async for audio_frame in self.cartesia.synthesize(text):
                 yield audio_frame
             
@@ -116,6 +117,7 @@ class MultiProviderTTS(FrameProcessor):
         # Try ElevenLabs fallback
         try:
             logger.debug(f"Trying ElevenLabs TTS for text: {text[:50]}...")
+            logger.info("TTS fallback input text: %r", text)
             async for audio_frame in self.elevenlabs.synthesize(text):
                 yield audio_frame
             
@@ -150,6 +152,9 @@ class MultiProviderTTS(FrameProcessor):
             "cartesia_circuit_open": self.cartesia.is_circuit_open,
             "elevenlabs_circuit_open": self.elevenlabs.is_circuit_open,
         }
+
+    def get_total_cost(self) -> float:
+        return self.total_cost
     
     def reset_circuit_breakers(self):
         """Reset all circuit breakers (for testing/manual intervention)"""

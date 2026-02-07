@@ -19,6 +19,7 @@ import logging
 
 from pipecat.services.cartesia import CartesiaTTSService as PipecatCartesiaTTS
 from pipecat.frames.frames import TTSAudioRawFrame, TextFrame
+from pipecat.processors.frame_processor import FrameDirection
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +97,7 @@ class CartesiaTTSService:
         
         try:
             # Ensure underlying service is initialized inside an active event loop
-            if self.service.process_frame is self._default_process_frame:
+            if isinstance(self.service, _StubTTSService):
                 try:
                     loop = asyncio.get_running_loop()
                 except RuntimeError:
@@ -110,10 +111,22 @@ class CartesiaTTSService:
                 )
                 self._default_process_frame = self.service.process_frame
 
-            # Call Pipecat service
-            async for frame in self.service.process_frame(TextFrame(text=text)):
-                if isinstance(frame, TTSAudioRawFrame):
-                    yield frame
+            # Call Pipecat service (handle async generator or coroutine)
+            result = self.service.process_frame(
+                TextFrame(text=text), FrameDirection.DOWNSTREAM
+            )
+            if hasattr(result, "__aiter__"):
+                async for frame in result:
+                    if isinstance(frame, TTSAudioRawFrame):
+                        yield frame
+            else:
+                output = await result
+                if isinstance(output, list):
+                    for frame in output:
+                        if isinstance(frame, TTSAudioRawFrame):
+                            yield frame
+                elif isinstance(output, TTSAudioRawFrame):
+                    yield output
             
             # Reset failure count on success
             self.failure_count = 0
@@ -156,7 +169,7 @@ class CartesiaTTSService:
             CARTESIA_VOICE_ID: Cartesia voice ID (optional)
             CARTESIA_MODEL: Cartesia model (optional, defaults to sonic-3)
         """
-        voice_id = os.getenv("CARTESIA_VOICE_ID", "a0e99841-438c-4a64-b679-ae501e7d6091")
+        voice_id = os.getenv("CARTESIA_VOICE_ID", "f786b574-daa5-4673-aa0c-cbe3e8534c02")
         model = os.getenv("CARTESIA_MODEL", "sonic-3")
         
         return cls(

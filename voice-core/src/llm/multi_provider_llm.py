@@ -17,7 +17,28 @@ import asyncio
 from typing import Optional, AsyncIterator
 import logging
 
-from pipecat.frames.frames import Frame, LLMMessagesFrame, TextFrame
+from pipecat.frames.frames import (
+    Frame,
+    LLMMessagesFrame,
+    TextFrame,
+    LLMSetToolsFrame,
+)
+try:
+    from pipecat.frames.frames import LLMContextFrame
+except ImportError:  # Older pipecat may not have this
+    LLMContextFrame = type("LLMContextFrame", (Frame,), {})
+try:
+    from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContextFrame
+except Exception:  # pragma: no cover - optional dependency
+    OpenAILLMContextFrame = type("OpenAILLMContextFrame", (Frame,), {})
+try:
+    from pipecat.frames.frames import LLMSetToolChoiceFrame
+except ImportError:  # Older pipecat uses LLMSetToolsFrame only
+    LLMSetToolChoiceFrame = LLMSetToolsFrame
+try:
+    from pipecat.frames.frames import LLMConfigureOutputFrame
+except ImportError:  # Older pipecat does not have output config frame
+    LLMConfigureOutputFrame = type("LLMConfigureOutputFrame", (Frame,), {})
 from pipecat.processors.frame_processor import FrameProcessor
 
 from .gemini_llm import GeminiLLMService, CircuitBreakerOpen as GeminiCircuitBreakerOpen
@@ -79,7 +100,18 @@ class MultiProviderLLM(FrameProcessor):
         }
         self.total_cost = 0.0
         self.call_start_time: Optional[float] = None
+        self._last_cost_time: Optional[float] = None
         
+    async def _broadcast_config_frame(self, frame: Frame, direction) -> None:
+        """Broadcast config frames (tools/tool_choice) to all providers."""
+        providers = [self.gemini, self.openai]
+        for provider in providers:
+            try:
+                async for _ in provider.process_frame(frame, direction):
+                    pass
+            except Exception as e:
+                logger.warning("Failed to send config frame to provider: %s", e)
+
     async def process_frame(self, frame: Frame, direction) -> AsyncIterator[Frame]:
         """
         Process frame through LLM pipeline with automatic fallback.
@@ -91,25 +123,40 @@ class MultiProviderLLM(FrameProcessor):
         Yields:
             Frame objects (TextFrame, LLMMessagesFrame, etc.)
         """
+        # Handle LLM configuration frames (tools, tool_choice, output config)
+        if isinstance(frame, (LLMSetToolsFrame, LLMSetToolChoiceFrame, LLMConfigureOutputFrame)):
+            await self._broadcast_config_frame(frame, direction)
+            return
+
         # Pass through non-LLM frames
-        if not isinstance(frame, (LLMMessagesFrame, TextFrame)):
+        if not isinstance(frame, (LLMMessagesFrame, TextFrame, OpenAILLMContextFrame, LLMContextFrame)):
             yield frame
             return
+        
+        if isinstance(frame, (LLMMessagesFrame, OpenAILLMContextFrame, LLMContextFrame)):
+            print(f"LLM received context frame: {frame.__class__.__name__}")
+        elif isinstance(frame, TextFrame):
+            print(f"LLM received text frame: {frame.text!r}")
         
         # Track call start time for cost calculation
         if self.call_start_time is None:
             self.call_start_time = asyncio.get_event_loop().time()
+            self._last_cost_time = self.call_start_time
         
         # Try Gemini first (primary, lower cost)
         try:
             logger.debug("Trying Gemini 2.5 Flash LLM...")
             async for output_frame in self.gemini.process_frame(frame, direction):
+                if isinstance(output_frame, TextFrame):
+                    print(f"Gemini output text: {output_frame.text!r}")
                 yield output_frame
             
             # Track usage
             self.provider_usage["gemini"] += 1
-            elapsed_min = (asyncio.get_event_loop().time() - self.call_start_time) / 60
+            now = asyncio.get_event_loop().time()
+            elapsed_min = (now - (self._last_cost_time or now)) / 60
             self.total_cost += elapsed_min * self.cost_per_min["gemini"]
+            self._last_cost_time = now
             logger.debug(f"Gemini LLM success. Total cost: ${self.total_cost:.6f}")
             return
             
@@ -122,12 +169,16 @@ class MultiProviderLLM(FrameProcessor):
         try:
             logger.debug("Trying OpenAI GPT-4.1 LLM...")
             async for output_frame in self.openai.process_frame(frame, direction):
+                if isinstance(output_frame, TextFrame):
+                    print(f"OpenAI output text: {output_frame.text!r}")
                 yield output_frame
             
             # Track usage
             self.provider_usage["openai"] += 1
-            elapsed_min = (asyncio.get_event_loop().time() - self.call_start_time) / 60
+            now = asyncio.get_event_loop().time()
+            elapsed_min = (now - (self._last_cost_time or now)) / 60
             self.total_cost += elapsed_min * self.cost_per_min["openai"]
+            self._last_cost_time = now
             logger.warning(f"OpenAI LLM fallback success. Total cost: ${self.total_cost:.6f}")
             return
             
@@ -156,12 +207,25 @@ class MultiProviderLLM(FrameProcessor):
             "gemini_circuit_open": self.gemini.is_circuit_open,
             "openai_circuit_open": self.openai.is_circuit_open,
         }
+
+    def get_total_cost(self) -> float:
+        return self.total_cost
     
     def reset_circuit_breakers(self):
         """Reset all circuit breakers (for testing/manual intervention)"""
         self.gemini.reset_circuit_breaker()
         self.openai.reset_circuit_breaker()
         logger.info("All LLM circuit breakers reset")
+
+    def register_function(self, function_name: str, handler):
+        """Register a function handler on all LLM providers."""
+        self.gemini.register_function(function_name, handler)
+        self.openai.register_function(function_name, handler)
+
+    def register_direct_function(self, handler):
+        """Register a direct function handler on all LLM providers."""
+        self.gemini.register_direct_function(handler)
+        self.openai.register_direct_function(handler)
     
     @classmethod
     def from_env(cls):

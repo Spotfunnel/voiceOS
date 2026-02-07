@@ -7,7 +7,8 @@ Acts as a pass-through frame processor that emits events.
 
 import asyncio
 from typing import Optional, AsyncIterator
-from pipecat.frames.frames import Frame, TranscriptionFrame, TextFrame
+import logging
+from pipecat.frames.frames import Frame, TranscriptionFrame, TextFrame, AudioRawFrame, TTSAudioRawFrame
 from pipecat.processors.frame_processor import FrameProcessor
 
 from ..events.event_emitter import EventEmitter
@@ -32,6 +33,7 @@ class PipelineFrameObserver(FrameProcessor):
         """
         super().__init__()
         self.event_emitter = event_emitter
+        self.logger = logging.getLogger(__name__)
     
     async def process_frame(self, frame: Frame, direction):
         """
@@ -52,12 +54,44 @@ class PipelineFrameObserver(FrameProcessor):
                         "timestamp": getattr(frame, "timestamp", None),
                     }
                 )
+                self.logger.info("STT transcription: %r", frame.text)
             elif isinstance(frame, TextFrame):
                 self._emit_nonblocking(
                     "agent_spoke",
                     data={
                         "text": frame.text,
                     }
+                )
+                self.logger.info("LLM response text: %r", frame.text)
+            elif isinstance(frame, AudioRawFrame):
+                self._emit_nonblocking(
+                    "audio_frame_received",
+                    data={
+                        "bytes": len(frame.audio),
+                        "sample_rate": frame.sample_rate,
+                        "num_channels": frame.num_channels,
+                    }
+                )
+                self.logger.info(
+                    "Audio frame received: bytes=%s sample_rate=%s channels=%s",
+                    len(frame.audio),
+                    frame.sample_rate,
+                    frame.num_channels,
+                )
+            elif isinstance(frame, TTSAudioRawFrame):
+                self._emit_nonblocking(
+                    "tts_audio_generated",
+                    data={
+                        "bytes": len(frame.audio),
+                        "sample_rate": frame.sample_rate,
+                        "num_channels": frame.num_channels,
+                    }
+                )
+                self.logger.info(
+                    "TTS audio generated: bytes=%s sample_rate=%s channels=%s",
+                    len(frame.audio),
+                    frame.sample_rate,
+                    frame.num_channels,
                 )
         
         # Pass frame through unchanged (non-intrusive)

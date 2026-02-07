@@ -20,16 +20,65 @@ from typing import Optional
 import logging
 
 from pipecat.pipeline.pipeline import Pipeline
+from pipecat.frames.frames import Frame, AudioRawFrame, InputAudioRawFrame, TranscriptionFrame
+from pipecat.processors.frame_processor import FrameProcessor
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineTask
-from pipecat.services.deepgram import DeepgramSTTService
+try:
+    from pipecat.services.deepgram import DeepgramSTTService
+except Exception:  # pragma: no cover - optional dependency
+    DeepgramSTTService = None
 
 from ..events.event_emitter import EventEmitter
 from ..llm.multi_provider_llm import MultiProviderLLM
+from ..processors.llm_tools_processor import LLMToolsProcessor
+from ..processors.knowledge_filler_processor import KnowledgeFillerProcessor
+from ..processors.multi_asr_processor import MultiASRProcessor
+from ..tools.knowledge_tool import KNOWLEDGE_QUERY_TOOL, register_knowledge_tool
 from ..tts.multi_provider_tts import MultiProviderTTS
 from .frame_observer import PipelineFrameObserver
 
 logger = logging.getLogger(__name__)
+
+
+class STTWithFallback(FrameProcessor):
+    """
+    STT wrapper that falls back to multi-ASR if primary fails.
+    """
+
+    def __init__(self, primary, fallback):
+        super().__init__()
+        self.primary = primary
+        self.fallback = fallback
+        self.use_fallback = False
+        self.logger = logging.getLogger(__name__)
+
+    async def process_frame(self, frame: Frame, direction):
+        if isinstance(frame, (AudioRawFrame, InputAudioRawFrame)):
+            self.logger.info(
+                "STT input audio frame: %s bytes (sample_rate=%s)",
+                len(frame.audio),
+                frame.sample_rate,
+            )
+        if not self.use_fallback:
+            try:
+                async for output in self.primary.process_frame(frame, direction):
+                    if isinstance(output, TranscriptionFrame):
+                        self.logger.info("STT transcription output: %r", output.text)
+                    yield output
+                return
+            except Exception as exc:
+                logger.warning("Primary STT failed, switching to fallback: %s", exc)
+                self.use_fallback = True
+
+        if self.fallback:
+            async for output in self.fallback.process_frame(frame, direction):
+                if isinstance(output, TranscriptionFrame):
+                    self.logger.info("STT fallback transcription: %r", output.text)
+                yield output
+            return
+
+        yield frame
 
 
 class VoicePipeline:
@@ -51,6 +100,7 @@ class VoicePipeline:
         system_prompt: str = "You are a helpful AI assistant for SpotFunnel.",
         use_multi_provider_tts: bool = True,
         use_multi_provider_llm: bool = True,
+        tenant_id: Optional[str] = None,
     ):
         """
         Initialize voice pipeline.
@@ -65,37 +115,53 @@ class VoicePipeline:
         self.system_prompt = system_prompt
         self.use_multi_provider_tts = use_multi_provider_tts
         self.use_multi_provider_llm = use_multi_provider_llm
+        self.tenant_id = tenant_id
         
         # Initialize services
         self.stt = self._create_stt_service()
         self.llm = self._create_llm_service()
         self.tts = self._create_tts_service()
+        self.knowledge_filler = KnowledgeFillerProcessor(tenant_id=self.tenant_id)
+        self.tools_processor = None
+        if self.tenant_id:
+            self.tools_processor = LLMToolsProcessor(
+                tools=[KNOWLEDGE_QUERY_TOOL],
+                tool_choice="auto",
+            )
+            register_knowledge_tool(self.llm, tenant_id=self.tenant_id)
         
         # Frame observer for event emission
         self.frame_observer = PipelineFrameObserver(event_emitter=event_emitter)
         
-    def _create_stt_service(self) -> DeepgramSTTService:
+    def _create_stt_service(self):
         """
         Create Deepgram STT service (optimized for Australian accent).
         
         Model: nova-3 (low latency, real-time optimized for Australian English)
         Sample rate: 16kHz (PCM) for Daily.co, 8kHz (mulaw) for Twilio
         """
+        if DeepgramSTTService is None:
+            raise RuntimeError("Deepgram STT dependency not available.")
         api_key = os.getenv("DEEPGRAM_API_KEY")
         if not api_key:
             raise ValueError("DEEPGRAM_API_KEY must be set in environment")
         
         # Deepgram model optimized for Australian English
-        return DeepgramSTTService(
+        primary = DeepgramSTTService(
             api_key=api_key,
             model="nova-3",  # Latest model optimized for low latency Australian English
             language="en-AU",  # Australian English
             sample_rate=16000,  # Will be auto-converted for Twilio mulaw 8kHz
             channels=1,
         )
+
+        fallback = MultiASRProcessor.from_env(event_emitter=self.event_emitter)
+        fallback.enable_multi_asr()
+
+        return STTWithFallback(primary=primary, fallback=fallback)
     
-    def _create_llm_service(self) -> OpenAILLMService:
-        """Create OpenAI LLM service (GPT-4o)"""
+    def _create_llm_service(self) -> MultiProviderLLM:
+        """Create LLM service (Gemini primary, OpenAI backup)"""
         return MultiProviderLLM.from_env()
     
     def _create_tts_service(self):
@@ -133,15 +199,28 @@ class VoicePipeline:
             Configured Pipeline instance
         """
         # Create pipeline with frame processors
-        pipeline = Pipeline([
+        processors = [
             transport_input,              # Audio input (Daily.co or Twilio)
             self.stt,                    # Speech-to-text (Deepgram)
             self.frame_observer,         # Observe STT frames for event emission
-            self.llm,                    # Language model (multi-provider: Gemini/GPT-4.1)
-            self.frame_observer,         # Observe LLM output frames
-            self.tts,                    # Text-to-speech (multi-provider)
-            transport_output,            # Audio output (Daily.co or Twilio)
-        ])
+        ]
+        if self.tools_processor:
+            processors.append(self.tools_processor)
+        processors.extend(
+            [
+                self.llm,                    # Language model (multi-provider: Gemini/GPT-4.1)
+                self.knowledge_filler,       # Filler when querying KBs
+                self.frame_observer,         # Observe LLM output frames
+                self.tts,                    # Text-to-speech (multi-provider)
+                transport_output,            # Audio output (Daily.co or Twilio)
+            ]
+        )
+
+        pipeline = Pipeline(processors)
+        pipeline.cost_trackers = {
+            "llm": self.llm,
+            "tts": self.tts,
+        }
         
         logger.info("Voice pipeline created with multi-provider TTS and circuit breakers")
         return pipeline
@@ -181,7 +260,8 @@ def build_voice_pipeline(
     transport_input,
     transport_output,
     event_emitter: Optional[EventEmitter] = None,
-    system_prompt: str = "You are a helpful AI assistant for SpotFunnel."
+    system_prompt: str = "You are a helpful AI assistant for SpotFunnel.",
+    tenant_id: Optional[str] = None,
 ) -> Pipeline:
     """
     Convenience function to build voice pipeline.
@@ -198,6 +278,7 @@ def build_voice_pipeline(
     pipeline_builder = VoicePipeline(
         event_emitter=event_emitter,
         system_prompt=system_prompt,
-        use_multi_provider_tts=True  # Always use multi-provider in production
+        use_multi_provider_tts=True,  # Always use multi-provider in production
+        tenant_id=tenant_id,
     )
     return pipeline_builder.build_pipeline(transport_input, transport_output)

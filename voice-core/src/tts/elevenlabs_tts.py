@@ -19,6 +19,7 @@ import logging
 
 from pipecat.services.elevenlabs import ElevenLabsTTSService as PipecatElevenLabsTTS
 from pipecat.frames.frames import TTSAudioRawFrame, TextFrame
+from pipecat.processors.frame_processor import FrameDirection
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +97,7 @@ class ElevenLabsTTSService:
         
         try:
             # Ensure underlying service is initialized inside an active event loop
-            if self.service.process_frame is self._default_process_frame:
+            if isinstance(self.service, _StubTTSService):
                 try:
                     loop = asyncio.get_running_loop()
                 except RuntimeError:
@@ -110,10 +111,22 @@ class ElevenLabsTTSService:
                 )
                 self._default_process_frame = self.service.process_frame
 
-            # Call Pipecat service
-            async for frame in self.service.process_frame(TextFrame(text=text)):
-                if isinstance(frame, TTSAudioRawFrame):
-                    yield frame
+            # Call Pipecat service (handle async generator or coroutine)
+            result = self.service.process_frame(
+                TextFrame(text=text), FrameDirection.DOWNSTREAM
+            )
+            if hasattr(result, "__aiter__"):
+                async for frame in result:
+                    if isinstance(frame, TTSAudioRawFrame):
+                        yield frame
+            else:
+                output = await result
+                if isinstance(output, list):
+                    for frame in output:
+                        if isinstance(frame, TTSAudioRawFrame):
+                            yield frame
+                elif isinstance(output, TTSAudioRawFrame):
+                    yield output
             
             # Reset failure count on success
             self.failure_count = 0
