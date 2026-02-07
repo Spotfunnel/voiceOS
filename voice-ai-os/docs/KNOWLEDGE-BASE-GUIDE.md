@@ -746,7 +746,7 @@ from pipecat.processors.frameworks.llm import FunctionCallRegistryItem
 
 llm_service = OpenAILLMService(
     api_key=OPENAI_API_KEY,
-    model="gpt-4o",
+    model="gpt-4.1",
     tools=[
         get_account_balance_tool,
         get_appointment_availability_tool
@@ -1593,7 +1593,7 @@ async def handle_search_knowledge(query: str, category: str = None):
 # Register with LLM service
 llm_service = OpenAILLMService(
     api_key=OPENAI_API_KEY,
-    model="gpt-4o-mini",
+    model="gpt-4.1",
     tools=[search_knowledge_tool]
 )
 

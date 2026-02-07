@@ -269,11 +269,11 @@ CREATE OR REPLACE FUNCTION get_conversation_events(
   event_type VARCHAR,
   payload JSONB,
   sequence_number INTEGER,
-  timestamp TIMESTAMPTZ
+  event_timestamp TIMESTAMPTZ
 ) AS $$
 BEGIN
   RETURN QUERY
-  SELECT e.event_id, e.event_type, e.payload, e.sequence_number, e.timestamp
+  SELECT e.event_id, e.event_type, e.payload, e.sequence_number, e.timestamp as event_timestamp
   FROM events e
   WHERE e.trace_id = p_trace_id
   ORDER BY e.sequence_number ASC;

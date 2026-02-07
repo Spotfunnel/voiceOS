@@ -37,7 +37,7 @@
 - **File**: `src/pipeline/audio_pipeline.py`
 - Built STT → LLM → TTS pipeline:
   - **STT**: Deepgram (`nova-2` model, `en-AU` language)
-  - **LLM**: OpenAI GPT-4o (configurable via `OPENAI_MODEL`)
+  - **LLM**: Gemini 2.5 Flash (primary), OpenAI GPT-4.1 (backup)
   - **TTS**: ElevenLabs (configurable voice ID)
 - Frame-based architecture (Pipecat pattern)
 - Streaming (non-blocking async operations)
@@ -135,7 +135,7 @@ DEEPGRAM_API_KEY=your_deepgram_api_key
 
 # OpenAI LLM
 OPENAI_API_KEY=your_openai_api_key
-OPENAI_MODEL=gpt-4o  # Optional, defaults to gpt-4o
+OPENAI_MODEL=gpt-4.1  # Optional, defaults to gpt-4.1
 
 # ElevenLabs TTS
 ELEVENLABS_API_KEY=your_elevenlabs_api_key
@@ -167,7 +167,7 @@ Expected behavior:
 
 ### Day 2-5 (Future)
 1. **Capture Primitives**: Implement email, phone, address capture primitives
-2. **Multi-ASR Voting**: Add multi-ASR voting for critical data (Deepgram + AssemblyAI + GPT-4o-audio)
+2. **Multi-ASR Voting**: Add multi-ASR voting for critical data (Deepgram + AssemblyAI + OpenAI audio STT)
 3. **State Machine**: Integrate objective state machine for deterministic execution
 4. **Layer 2 Integration**: Connect to orchestration layer (gRPC/HTTP)
 5. **Postgres Event Storage**: Replace stdout logging with Postgres integration

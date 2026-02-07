@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS metrics_latency (
   
   -- Additional context
   provider VARCHAR(50), -- e.g., 'deepgram', 'openai', 'cartesia'
-  model VARCHAR(100), -- e.g., 'gpt-4o', 'sonic-3'
+  model VARCHAR(100), -- e.g., 'gpt-4.1', 'sonic-3'
   
   -- Timestamp (UTC)
   timestamp TIMESTAMPTZ DEFAULT NOW() NOT NULL

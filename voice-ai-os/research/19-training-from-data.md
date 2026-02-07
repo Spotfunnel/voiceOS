@@ -48,7 +48,7 @@ Fine-tuning LLMs on domain-specific call data causes **catastrophic forgetting**
 **Production Evidence (2025-2026):**
 
 **OpenAI Fine-Tuning Incidents:**
-- November 14, 2025: Elevated error rates in fine-tuning for gpt-4o-mini
+- November 14, 2025: Elevated error rates in fine-tuning for OpenAI mini models
 - Required mitigation and monitoring to resolve
 - Demonstrates fine-tuning is fragile, even for model providers
 

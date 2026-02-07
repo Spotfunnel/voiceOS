@@ -34,4 +34,8 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  .glass {
+    @apply bg-card/80 backdrop-blur-xl border-b border-border;
+  }
 }

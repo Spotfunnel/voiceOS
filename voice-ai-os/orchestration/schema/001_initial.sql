@@ -65,6 +65,35 @@ CREATE INDEX idx_calls_status ON calls(status);
 CREATE INDEX idx_calls_created_at ON calls(created_at DESC);
 
 -- =============================================================================
+-- CALL LOGS TABLE
+-- =============================================================================
+-- Customer dashboard call logs and captured data
+CREATE TABLE call_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  call_id TEXT NOT NULL,
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  caller_phone TEXT NOT NULL,
+  start_time TIMESTAMPTZ NOT NULL,
+  end_time TIMESTAMPTZ,
+  duration_seconds INTEGER NOT NULL DEFAULT 0,
+  outcome VARCHAR(50) NOT NULL CHECK (
+    outcome IN ('lead_captured', 'callback_requested', 'faq_resolved', 'escalated', 'failed', 'in_progress')
+  ),
+  transcript TEXT NOT NULL DEFAULT '',
+  captured_data JSONB NOT NULL DEFAULT '{}'::jsonb,
+  requires_action BOOLEAN NOT NULL DEFAULT FALSE,
+  priority VARCHAR(20) NOT NULL DEFAULT 'low' CHECK (priority IN ('urgent', 'high', 'medium', 'low')),
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  UNIQUE (tenant_id, call_id)
+);
+
+-- Indexes for call logs
+CREATE INDEX idx_call_logs_tenant_id ON call_logs(tenant_id);
+CREATE INDEX idx_call_logs_start_time ON call_logs(start_time DESC);
+CREATE INDEX idx_call_logs_outcome ON call_logs(outcome);
+CREATE INDEX idx_call_logs_requires_action ON call_logs(requires_action);
+
+-- =============================================================================
 -- EVENTS TABLE
 -- =============================================================================
 -- Append-only event stream (Event Sourcing)

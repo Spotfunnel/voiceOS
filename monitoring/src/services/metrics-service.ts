@@ -88,8 +88,8 @@ const PROVIDER_RATES: Record<string, Record<string, number>> = {
   
   // LLM rates (per 1K tokens)
   openai: {
-    llm_input: 0.0025, // GPT-4o input: $2.50/1M tokens
-    llm_output: 0.01, // GPT-4o output: $10/1M tokens
+    llm_input: 0.0025, // GPT-4.1 input: $2.50/1M tokens (update if pricing changes)
+    llm_output: 0.01, // GPT-4.1 output: $10/1M tokens (update if pricing changes)
   },
   
   // TTS rates (per character)

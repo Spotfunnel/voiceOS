@@ -108,7 +108,7 @@ Every event should include:
   },
   "metadata": {
     "latency_ms": 234,
-    "model_version": "gpt-4o-2024-08-06",
+    "model_version": "gpt-4.1",
     "region": "us-west-2"
   }
 }
@@ -334,7 +334,7 @@ In distributed systems with concurrent components (STT, LLM, TTS running in para
   "parent_event_id": "uuid",
   "metadata": {
     "latency_ms": 234,
-    "model_version": "gpt-4o-2024-08-06",
+    "model_version": "gpt-4.1",
     "region": "us-west-2",
     "agent_version": "v1.2.3"
   }

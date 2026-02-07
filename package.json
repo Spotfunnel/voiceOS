@@ -1,0 +1,28 @@
+{
+  "name": "spotfunnel-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "description": "SpotFunnel Voice AI monorepo",
+  "workspaces": [
+    "apps/*",
+    "monitoring"
+  ],
+  "scripts": {
+    "dev:public": "npm run dev --workspace=apps/public-site",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:all": "concurrently \"npm:dev:public\" \"npm:dev:web\"",
+    "build:public": "npm run build --workspace=apps/public-site",
+    "build:web": "npm run build --workspace=apps/web",
+    "build:all": "npm run build:public && npm run build:web",
+    "lint:boundaries": "node scripts/check-boundaries.js",
+    "test:boundaries": "npm run lint:boundaries"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "glob": "^10.5.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

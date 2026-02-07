@@ -1,0 +1,347 @@
+Stress Testing Voice AI in V1
+Two-Layer Strategy: Local Gates + Global Onboarding Gates
+Why this matters
+
+Voice agents fail differently than chatbots: audio timing, interruptions, silence, telephony jitter, and async dependencies create failure modes that only show up under adversarial conditions and load. Industry guides consistently recommend combining scenario testing, regression testing, load testing, and continuous monitoring rather than relying on manual QA.
+
+1) Core principle: test what can break the call
+
+A production Voice AI must survive:
+
+Real-time interaction failures (barge-in latency, turn detection, silence)
+
+Capture failures (invalid/ambiguous input, correction loops)
+
+Objective correctness failures (state machine undefined paths)
+
+Integration failures (timeouts/500s) without affecting the conversation
+
+Observability failures (no replay, missing correlation IDs)
+
+Best-practice testing frameworks emphasize using playbooks/scenarios, assertions, integration testing, regression suites, load testing, and production monitoring/synthetic checks.
+
+2) The Two Layers of Stress Testing
+Layer A — Local stress testing (Cursor / developer gate)
+
+Goal: prevent regressions in the shared platform (especially Layer 1).
+When: pre-merge, pre-release, nightly CI.
+
+What local tests must cover in V1
+
+Local is where you prove the core invariants and determinism.
+
+A1) Voice mechanics torture suite (Layer 1 survival)
+
+Scenarios
+
+Silence ladder: 2s / 5s / 10s / 20s (silent at start, silent mid-capture)
+
+Interruption storms: caller interrupts within 500ms, multiple rapid barge-ins
+
+Talk-over collisions: caller begins speaking during assistant’s final syllable
+
+Hangup mid-turn: during TTS, during capture confirmation, during repair loop
+
+Noisy audio: background TV, multiple speakers, low volume
+
+Acceptance criteria
+
+No deadlocks, no infinite “are you there?” loops
+
+Barge-in stops/ducks TTS fast enough to feel natural (voice testing literature emphasizes low interruption latency as critical to UX).
+
+Every call ends in a terminal state with a full event trail
+
+A2) Capture primitives adversarial suite (typed capture moat)
+
+Scenarios
+
+Invalid formats (“john at gmail dot com”, spaced digits, partial numbers)
+
+Corrections after confirmation (“no actually, change that to…”)
+
+Refusal (“I’m not giving email”)
+
+Ambiguity (“next Friday”, multiple services in one sentence)
+
+Acceptance criteria
+
+Invalid input always triggers bounded repair loops
+
+After N attempts, deterministic escalation / fallback occurs
+
+Only validated values are committed as “final”
+
+Same transcript/events ⇒ same extracted values + same state transitions (determinism)
+
+A3) Objective/state-machine robustness (Layer 2 correctness)
+
+Scenarios
+
+Intent shift mid-call (lead → support)
+
+Objective misconfig: missing fields, unknown objective type, unreachable state
+
+“Prompt steering” attempts (caller tries to redirect flow)
+
+Acceptance criteria
+
+No undefined states ever occur
+
+Objective graphs are bounded and validated
+
+LLM outputs do not directly drive transitions (state machine does)
+
+A4) Integration isolation (Layer 3 safety)
+
+Failure injection
+
+Webhook 500, timeout, slow 30s
+
+Provider rate limits
+
+Duplicate delivery conditions (retry storms)
+
+Acceptance criteria
+
+Conversation timing/flow is unaffected (async boundary)
+
+Failures show up only as events/metrics (not caller-visible)
+
+Idempotency prevents duplicate side effects
+
+A5) Observability + replay determinism (EDA best practice)
+
+Event-driven systems best practices repeatedly emphasize correlation IDs, distributed tracing, and end-to-end visibility across async boundaries.
+
+Acceptance criteria
+
+Every test run produces an event stream that can be replayed
+
+Replay reaches the same terminal state and key outputs
+
+Correlation/trace IDs propagate across components (voice core → objectives → integrations)
+
+A6) Load + cost safety (platform survival)
+
+Local load tests don’t need “thousands” yet, but they must catch:
+
+queue growth
+
+latency spikes
+
+runaway token spend
+
+Acceptance criteria
+
+Concurrency at small N (e.g., 5–20) without failure cascades
+
+Hard ceilings: max call duration, max repair loops, max tokens/min
+
+Graceful degradation under resource pressure
+
+Layer B — Global onboarding stress testing (tenant certification)
+
+Goal: prevent shipping a “bad configuration + bad connectivity + broken integration” tenant into production.
+When: every new customer, every config change, before go-live.
+
+This is where you test the tenant’s telephony path, objective config, and integrations—without changing the core.
+
+What onboarding testing must cover in V1
+B1) Config validation gate (objective “compiler”)
+
+Checks
+
+Required fields present
+
+No unreachable states
+
+No cycles without exits
+
+Escalation rules defined
+
+Allowed objective set only (no arbitrary prompt fields)
+
+Acceptance criteria
+
+If validation fails: onboarding is blocked with explicit errors
+
+Config changes are versioned (so outcomes correlate to versions)
+
+(Playbook/assertion-driven testing is a common best practice in conversational testing frameworks: define scenarios and assert outcomes.)
+
+B2) Telephony + voice quality gate (real pipeline)
+
+Voice AI testing guidance stresses validating the full pipeline: telephony ↔ STT ↔ LLM ↔ TTS, because issues often arise from interactions between layers.
+
+Checks
+
+Place real test calls through the assigned number/provider path
+
+Confirm audio levels, codec/transcoding issues
+
+Baseline STT accuracy on tenant-specific vocabulary (services, suburbs, brand name)
+
+Barge-in behavior works over real network conditions
+
+Acceptance criteria
+
+Meets a minimum “call quality” score (define thresholds: turn latency, interruption responsiveness, dropout rate)
+
+No consistent misrecognition of critical business terms
+
+B3) Scenario suite gate (tenant-specific but standardized)
+
+Run a standard pack of scenarios across every tenant:
+
+Lead capture happy path
+
+Lead capture with invalid email/phone
+
+Silence → reprompt → fallback
+
+Intent shift mid-call
+
+Escalation triggers (“human”, complaint, urgent)
+
+Acceptance criteria
+
+Each scenario produces the expected terminal outcome + correct captured fields
+
+Failures are replayable and attributable to tenant config version
+
+B4) Integration readiness gate (async-only)
+
+Checks
+
+Webhook endpoint reachable
+
+Auth valid
+
+Provider credentials valid (email/SMS)
+
+Idempotency keys present and honored
+
+Failure handling paths observed
+
+Acceptance criteria
+
+Integration failures never impact conversation
+
+“Send follow-up” produces either sent or failed events within bounded async time
+
+No duplicate sends for a single call event (idempotency)
+
+B5) Synthetic monitoring hooks (post-go-live safety)
+
+Synthetic monitoring best practices recommend scripted “synthetic transactions” to detect issues before real users do—especially when real traffic is low or variable.
+
+Minimum V1 onboarding deliverable
+
+Register tenant into a small set of scheduled synthetic checks:
+
+daily “health call” scenario (short)
+
+webhook reachability
+
+error budget / latency threshold alerts
+
+Acceptance criteria
+
+Onboarding automatically enrolls tenant in synthetic checks
+
+Alerts route to ops dashboard when thresholds exceeded
+
+3) What goes where: V1 vs V1.5 vs V2
+V1 (must-have)
+
+Local
+
+Voice mechanics torture suite
+
+Capture primitives adversarial suite
+
+Objective validation + bounded transitions
+
+Integration failure injection (timeout/500)
+
+Replay determinism + correlation IDs
+
+Small-scale concurrency + cost ceilings
+
+Onboarding
+
+Config compiler gate
+
+Real-number test call gate (pipeline validation)
+
+Standard tenant scenario pack (5–10 scenarios)
+
+Integration reachability + idempotency gate
+
+Enroll in synthetic monitoring
+
+V1.5 (operational leverage)
+
+Larger load/soak testing (hours, higher concurrency)
+
+Geographic variability testing (network jitter, regions)
+
+More nuanced ASR evaluation (WER/critical-entity error rates)
+
+Dashboard-driven release gates (auto block deploy on regression)
+
+Expanded scenario library + coverage analytics
+
+V2 (learning and adaptation)
+
+Offline evaluation pipelines and “suggested config tuning”
+
+A/B testing with strict versioning and replay
+
+Safety testing for prompt-injection-like voice behaviors
+
+Automated dataset generation from failures
+
+4) “Battle-ready” onboarding checklist (copy/paste)
+Go-live gates (block if any fail)
+
+ Objective config validates (no undefined states, bounded loops)
+
+ Real-number test call passes latency + interruption expectations
+
+ Standard scenario pack passes (happy path + adversarial)
+
+ Integrations verified reachable; failures logged as events only
+
+ Idempotency confirmed (no duplicate emails/CRM writes)
+
+ Tenant enrolled in synthetic monitoring checks
+
+ Replay works for onboarding calls with correlation IDs intact
+
+5) Key risks (what kills V1 platforms)
+
+LLM-driven control flow sneaks in under pressure
+
+Async boundary violations (waiting on webhooks “just this once”)
+
+No replayability → you can’t improve reliably
+
+Barge-in latency makes the agent feel fake (and drives hangups)
+
+Tenant onboarding without real pipeline tests (demo passes, phone fails)
+
+6) How to hand this to Cursor agents
+
+Tell your Cursor agent:
+
+Treat this as the testing “constitution”
+
+Implement two gates:
+
+local pre-merge stress suite (platform invariants)
+
+per-tenant onboarding certification suite (tenant readiness)
+
+Never add per-tenant core logic; onboarding is validation + config + projectionsTh

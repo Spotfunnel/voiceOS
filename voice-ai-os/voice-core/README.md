@@ -20,7 +20,7 @@ Voice Core is **Layer 1** of the three-layer architecture:
 
 - ✅ Frame-based architecture (Pipecat pattern)
 - ✅ Deepgram STT (Speech-to-Text) with Australian English support
-- ✅ OpenAI GPT-4o (Language Model)
+- ✅ Gemini 2.5 Flash (primary) + OpenAI GPT-4.1 (backup)
 - ✅ ElevenLabs TTS (Text-to-Speech)
 - ✅ Daily.co WebRTC transport
 - ✅ Async, non-blocking operations
@@ -86,7 +86,7 @@ async def main():
     # Start pipeline
     await pipeline.start(
         system_prompt="You are a helpful AI assistant.",
-        model="gpt-4o",
+        model="gpt-4.1",
         voice_id="21m00Tcm4TlvDq8ikWAM",  # ElevenLabs voice ID
     )
     
@@ -112,7 +112,7 @@ pipeline = VoicePipeline(
 
 await pipeline.start(
     system_prompt="You are a customer service agent for Acme Plumbing.",
-    model="gpt-4o",
+    model="gpt-4.1",
     voice_id="custom_voice_id",
 )
 ```
@@ -146,7 +146,7 @@ Deepgram STT (Speech → Text)
     ↓
 LLM User Response Aggregator
     ↓
-OpenAI GPT-4o (Generate Response)
+Gemini 2.5 Flash / OpenAI GPT-4.1 (Generate Response)
     ↓
 ElevenLabs TTS (Text → Speech)
     ↓

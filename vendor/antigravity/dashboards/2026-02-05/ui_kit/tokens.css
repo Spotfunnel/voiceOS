@@ -1,0 +1,150 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        /* SpotFunnel Base Colors */
+        --background: 220 20% 98%;
+        --foreground: 222 47% 11%;
+
+        --card: 0 0% 100%;
+        --card-foreground: 222 47% 11%;
+
+        --popover: 0 0% 100%;
+        --popover-foreground: 222 47% 11%;
+
+        /* Brand Primary: SpotFunnel Teal */
+        --primary: 174 72% 40%;
+        --primary-foreground: 0 0% 100%;
+
+        /* Secondary: Soft Slate */
+        --secondary: 215 25% 95%;
+        --secondary-foreground: 222 47% 11%;
+
+        /* Muted: Subtle Grays */
+        --muted: 215 20% 94%;
+        --muted-foreground: 215 16% 47%;
+
+        /* Accent: Warm Amber */
+        --accent: 38 92% 50%;
+        --accent-foreground: 0 0% 100%;
+
+        /* Destructive: Softened Red */
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 100%;
+
+        /* Status Colors */
+        --success: 142 76% 36%;
+        --warning: 38 92% 50%;
+
+        /* Borders & Inputs */
+        --border: 214 32% 91%;
+        --input: 214 32% 91%;
+        --ring: 174 72% 40%;
+
+        /* Radius */
+        --radius: 0.75rem;
+
+        /* Sidebar Variables (Added from original Theme) */
+        --sidebar-background: 0 0% 98%;
+        --sidebar-foreground: 222 47% 11%;
+        --sidebar-primary: 174 72% 40%;
+        --sidebar-primary-foreground: 0 0% 100%;
+        --sidebar-accent: 215 25% 95%;
+        --sidebar-accent-foreground: 222 47% 11%;
+        --sidebar-border: 214 32% 91%;
+        --sidebar-ring: 174 72% 40%;
+    }
+
+    .dark {
+        --background: 222 47% 6%;
+        --foreground: 210 40% 98%;
+
+        --card: 222 47% 9%;
+        --card-foreground: 210 40% 98%;
+
+        --popover: 222 47% 9%;
+        --popover-foreground: 210 40% 98%;
+
+        --primary: 174 72% 50%;
+        --primary-foreground: 222 47% 6%;
+
+        --secondary: 217 33% 17%;
+        --secondary-foreground: 210 40% 98%;
+
+        --muted: 217 33% 17%;
+        --muted-foreground: 215 20% 65%;
+
+        --accent: 38 92% 50%;
+        --accent-foreground: 0 0% 0%;
+
+        --destructive: 0 63% 31%;
+        --destructive-foreground: 210 40% 98%;
+
+        --border: 217 33% 17%;
+        --input: 217 33% 17%;
+        --ring: 174 72% 50%;
+
+        /* Sidebar Dark Mode */
+        --sidebar-background: 222 47% 6%;
+        --sidebar-foreground: 210 40% 98%;
+        --sidebar-primary: 174 72% 50%;
+        --sidebar-primary-foreground: 222 47% 6%;
+        --sidebar-accent: 217 33% 17%;
+        --sidebar-accent-foreground: 210 40% 98%;
+        --sidebar-border: 217 33% 17%;
+        --sidebar-ring: 174 72% 50%;
+    }
+}
+
+/* Font Definitions from SpotFunnel */
+@font-face {
+    font-family: 'Roobert';
+    src: url('/fonts/Roobert-Regular.otf') format('opentype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Roobert';
+    src: url('/fonts/Roobert-Medium.otf') format('opentype');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Roobert';
+    src: url('/fonts/Roobert-Bold.otf') format('opentype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+
+    body {
+        @apply bg-background text-foreground antialiased;
+        font-family: 'Roobert', system-ui, sans-serif;
+        font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    }
+}
+
+@layer utilities {
+    .text-balance {
+        text-wrap: balance;
+    }
+
+    .animate-enter {
+        @apply animate-in fade-in zoom-in-95 duration-200;
+    }
+
+    .glass {
+        @apply bg-white/50 backdrop-blur-lg border-white/20;
+    }
+}

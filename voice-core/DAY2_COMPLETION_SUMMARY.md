@@ -138,7 +138,7 @@ stats = tts.get_provider_stats()
 **Architecture:**
 ```
 AudioRawFrame → STT (Deepgram) → TranscriptionFrame 
-              → LLM (GPT-4o) → TextFrame 
+              → LLM (Gemini 2.5 Flash) → TextFrame 
               → TTS (Multi-provider) → TTSAudioFrame 
               → Transport output
 ```
@@ -160,7 +160,8 @@ AudioRawFrame → STT (Deepgram) → TranscriptionFrame
 - Sample rate: 16kHz (auto-converted for Twilio mulaw 8kHz)
 
 **LLM Configuration:**
-- OpenAI GPT-4o
+- Gemini 2.5 Flash (primary)
+- OpenAI GPT-4.1 (backup)
 - System prompt: Immutable (not customer-configurable)
 
 **TTS Configuration:**
@@ -323,7 +324,7 @@ pip install -r requirements.txt
 ## Next Steps (Day 3+)
 
 ### Immediate (Day 3)
-1. **Multi-ASR voter integration** (Deepgram + AssemblyAI + GPT-4o-audio)
+1. **Multi-ASR voter integration** (Deepgram + AssemblyAI + OpenAI audio STT)
    - Use for critical data capture (email, phone)
    - LLM ranking of 3 transcripts
    - Budget: 3x ASR cost (~$0.03/min)

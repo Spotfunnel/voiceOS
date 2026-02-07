@@ -2,7 +2,7 @@
 Voice Pipeline - Core audio processing pipeline
 
 Implements the frame-based audio pipeline: STT → LLM → TTS
-using Pipecat framework with Deepgram, OpenAI GPT-4o, and ElevenLabs.
+using Pipecat framework with Deepgram, OpenAI GPT-4.1, and ElevenLabs.
 """
 
 import os
@@ -34,7 +34,7 @@ logger = structlog.get_logger(__name__)
 
 
 VOICE_CORE_SYSTEM_MESSAGE = "Voice Core v1: deterministic, immutable Layer 1 runtime."
-VOICE_CORE_LLM_MODEL = os.getenv("VOICE_CORE_LLM_MODEL", "gpt-4o")
+VOICE_CORE_LLM_MODEL = os.getenv("VOICE_CORE_LLM_MODEL", "gpt-4.1")
 VOICE_CORE_TTS_VOICE_ID = os.getenv("VOICE_CORE_TTS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
 
 
@@ -44,7 +44,7 @@ class VoicePipeline:
     
     Implements the immutable audio pipeline:
     - Deepgram STT (Speech-to-Text)
-    - OpenAI GPT-4o (Language Model)
+    - OpenAI GPT-4.1 (Language Model)
     - ElevenLabs TTS (Text-to-Speech)
     
     This is Layer 1 - immutable across all customers.

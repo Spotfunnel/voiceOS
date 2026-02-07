@@ -6,12 +6,24 @@
 # Phase 1.4: Added AssemblyAI for multi-ASR voting
 # Phase 6: Added Silero for VAD
 # Gemini swap: Added Google for Gemini 2.5 Flash LLM
-pipecat-ai[daily,twilio,deepgram,openai,cartesia,elevenlabs,assemblyai,silero,google,local-smart-turn-v3]==0.0.85
+pipecat-ai[daily,deepgram,openai,cartesia,elevenlabs,assemblyai,silero,google,local-smart-turn-v3,websocket]==0.0.85
 
 # Provider SDKs - let Pipecat manage the versions via extras
 # deepgram-sdk, openai, etc. are installed via pipecat-ai[deepgram,openai,...]
 # Manual pins removed to avoid dependency conflicts
 
+# Gemini dependencies
+google-genai
+google-cloud-speech
+
+# Deepgram SDK version compatible with pipecat
+deepgram-sdk==3.11.0
+
+# Pipecat protobuf requirement
+protobuf==5.29.3
+
+# Smart Turn local analyzer dependency
+transformers
 # HTTP server for bot runner
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
@@ -30,6 +42,10 @@ circuitbreaker==1.4.0
 
 # Database
 psycopg2-binary>=2.9.9
+asyncpg>=0.29.0
+
+# Authentication
+bcrypt>=4.0.1
 
 # Testing
 pytest~=7.4.0

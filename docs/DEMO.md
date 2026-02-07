@@ -96,7 +96,7 @@ DEEPGRAM_API_KEY=your-deepgram-api-key
 
 # LLM (OpenAI)
 OPENAI_API_KEY=your-openai-api-key
-OPENAI_MODEL=gpt-4o  # Optional, defaults to gpt-4o
+OPENAI_MODEL=gpt-4.1  # Optional, defaults to gpt-4.1
 
 # TTS (ElevenLabs)
 ELEVENLABS_API_KEY=your-elevenlabs-api-key

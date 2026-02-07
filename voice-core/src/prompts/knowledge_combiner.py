@@ -2,14 +2,16 @@
 Knowledge combiner for building complete system prompts.
 
 Combines:
-1. Layer 1 core prompt (immutable receptionist behavior)
-2. Static knowledge (Tier 1, customer-specific)
-3. Layer 2 system prompt (agent role/personality/objectives)
+1. Layer 1 foundation prompt (immutable voice AI behavior) - from layer1_foundation.py
+2. Static knowledge (Tier 1, customer-specific) - from knowledge base
+3. Layer 2 system prompt (agent role/personality/objectives) - from onboarding "Persona & Purpose"
 """
 
 from typing import Optional
 
 import tiktoken
+
+from .layer1_foundation import get_layer1_prompt
 
 MAX_STATIC_KNOWLEDGE_TOKENS = 10_000
 
@@ -48,22 +50,23 @@ def validate_static_knowledge(knowledge: str) -> int:
 
 
 def combine_prompts(
-    layer1_core_prompt: str,
-    static_knowledge: Optional[str],
-    layer2_system_prompt: Optional[str],
+    static_knowledge: Optional[str] = None,
+    layer2_system_prompt: Optional[str] = None,
 ) -> str:
     """
     Combine Layer 1 + static knowledge + Layer 2 into a single system prompt.
 
+    Layer 1 is automatically loaded from layer1_foundation.py (universal for all agents).
+
     Args:
-        layer1_core_prompt: Immutable receptionist instruction.
-        static_knowledge: Tier 1 knowledge provided by the customer.
-        layer2_system_prompt: Layer 2 system prompt override or customization.
+        static_knowledge: Tier 1 knowledge provided by the customer (knowledge base).
+        layer2_system_prompt: Layer 2 system prompt (Persona & Purpose from onboarding).
 
     Returns:
         Combined prompt string ready for LLM calls.
     """
-    sections = [layer1_core_prompt.strip()]
+    # Layer 1: Universal foundation (always included)
+    sections = [get_layer1_prompt()]
 
     knowledge_text = (static_knowledge or "").strip()
     if knowledge_text:
@@ -87,10 +90,12 @@ def combine_prompts(
         layer2_section = "\n".join(
             [
                 "---",
-                "BUSINESS-SPECIFIC CONTEXT (Layer 2)",
+                "YOUR ROLE & PURPOSE (Layer 2: Business-Specific)",
                 "---",
                 "",
                 layer2_text,
+                "",
+                "This defines WHO you are, WHAT you do, and what SUCCESS looks like for this specific business.",
             ]
         )
         sections.append(layer2_section)

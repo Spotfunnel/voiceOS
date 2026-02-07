@@ -1,0 +1,12 @@
+﻿{
+  "calls": [
+    {"id": "1", "customer_phone": "+1 (555) 123-4567", "caller_name": "Alice Johnson", "intent": "New Lead", "booking_status": "Booked", "date": "2026-02-06", "called_at": "09:15 AM", "summary": "Interested in solar panels"},
+    {"id": "2", "customer_phone": "+1 (555) 234-5678", "caller_name": "Bob Smith", "intent": "Support", "booking_status": "Callback Required", "date": "2026-02-06", "called_at": "10:30 AM", "summary": "Inverter issue"},
+    {"id": "3", "customer_phone": "+1 (555) 345-6789", "caller_name": "Charlie Davis", "intent": "Complaint", "booking_status": "Resolved", "date": "2026-02-05", "called_at": "02:15 PM", "summary": "Installation delay"}
+  ],
+  "metrics": {
+    "totalCalls": 45,
+    "bookedCalls": 12,
+    "pipelineValue": 6000
+  }
+}

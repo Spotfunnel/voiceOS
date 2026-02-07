@@ -86,8 +86,8 @@ PROVIDER_RATES: Dict[str, Dict[str, float]] = {
     
     # LLM rates (per 1K tokens)
     'openai': {
-        'llm_input': 0.0025,  # GPT-4o input: $2.50/1M tokens
-        'llm_output': 0.01,   # GPT-4o output: $10/1M tokens
+        'llm_input': 0.0025,  # GPT-4.1 input: $2.50/1M tokens (update if pricing changes)
+        'llm_output': 0.01,   # GPT-4.1 output: $10/1M tokens (update if pricing changes)
     },
     
     # TTS rates (per character)
@@ -237,7 +237,7 @@ class MetricsCollector:
                 component='llm',
                 latency_ms=int(data['ttft_ms']),
                 provider='openai',
-                model=data.get('model', 'gpt-4o'),
+                model=data.get('model', 'gpt-4.1'),
                 timestamp=timestamp
             )
             await self._buffer_latency(metric)

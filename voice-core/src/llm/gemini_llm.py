@@ -17,7 +17,10 @@ import asyncio
 from typing import Optional, AsyncIterator
 import logging
 
-from pipecat.services.google import GoogleLLMService as PipecatGoogleLLM
+try:
+    from pipecat.services.google import GoogleLLMService as PipecatGoogleLLM
+except Exception:  # pragma: no cover - optional dependency
+    PipecatGoogleLLM = None
 from pipecat.frames.frames import Frame, LLMMessagesFrame, TextFrame
 
 logger = logging.getLogger(__name__)
@@ -43,6 +46,8 @@ class GeminiLLMService:
             api_key: Google API key (defaults to GOOGLE_API_KEY env var)
             model: Gemini model (defaults to gemini-2.5-flash)
         """
+        if PipecatGoogleLLM is None:
+            raise RuntimeError("Google LLM dependency not available.")
         self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
         if not self.api_key:
             raise ValueError("GOOGLE_API_KEY must be set in environment or passed as argument")
@@ -94,7 +99,7 @@ class GeminiLLMService:
         
         try:
             # Ensure underlying service is initialized inside an active event loop
-            if self.service.process_frame is self._default_process_frame:
+            if isinstance(self.service, _StubLLMService):
                 try:
                     loop = asyncio.get_running_loop()
                 except RuntimeError:
@@ -107,9 +112,20 @@ class GeminiLLMService:
                 )
                 self._default_process_frame = self.service.process_frame
 
-            # Call Pipecat service
-            async for output_frame in self.service.process_frame(frame, direction):
-                yield output_frame
+            # Call Pipecat service (handle async generator or coroutine)
+            result = self.service.process_frame(frame, direction)
+            if hasattr(result, "__aiter__"):
+                async for output_frame in result:
+                    yield output_frame
+            else:
+                output = await result
+                if output is None:
+                    pass
+                elif isinstance(output, list):
+                    for output_frame in output:
+                        yield output_frame
+                else:
+                    yield output
             
             # Reset failure count on success
             self.failure_count = 0
@@ -141,6 +157,30 @@ class GeminiLLMService:
     def is_circuit_open(self) -> bool:
         """Check if circuit breaker is open"""
         return self.circuit_open
+
+    def _ensure_service(self):
+        if isinstance(self.service, _StubLLMService):
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+
+            self.service = PipecatGoogleLLM(
+                api_key=self.api_key,
+                model=self.model,
+                loop=loop,
+            )
+            self._default_process_frame = self.service.process_frame
+
+    def register_function(self, function_name: str, handler):
+        """Register a function handler for Gemini function calling."""
+        self._ensure_service()
+        self.service.register_function(function_name, handler)
+
+    def register_direct_function(self, handler):
+        """Register a direct function handler for Gemini function calling."""
+        self._ensure_service()
+        self.service.register_direct_function(handler)
     
     @classmethod
     def from_env(cls):

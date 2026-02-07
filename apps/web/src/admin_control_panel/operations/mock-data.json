@@ -1,0 +1,12 @@
+﻿{
+  "systemMetrics": {
+    "totalCalls": 1247,
+    "activeAgents": 12,
+    "avgResponseTime": "1.2s",
+    "successRate": 94.5
+  },
+  "recentActivity": [
+    {"id": "1", "timestamp": "2026-02-06T00:15:23Z", "type": "call_completed", "agentId": "agent-001", "duration": 145, "outcome": "booking"},
+    {"id": "2", "timestamp": "2026-02-06T00:12:45Z", "type": "call_completed", "agentId": "agent-003", "duration": 89, "outcome": "information"}
+  ]
+}
