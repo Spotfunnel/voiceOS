@@ -1,0 +1,756 @@
+# Dashboard Architecture Guide
+
+Complete technical specification for replicating the SpotFunnel dashboard architecture with different data/fields.
+
+---
+
+## Architecture Overview
+
+### 3-Tab Navigation Structure
+```
+Dashboard
+├── Overview (consolidated metrics + data table)
+├── Action Required (filtered urgent items)
+└── Configuration (AI settings with sidebar)
+```
+
+### Core Design Principles
+1. **Mobile-first responsive** - Bottom nav on mobile, top nav on desktop
+2. **Real-time data** - Pull-to-refresh on mobile, auto-refresh capability
+3. **Contextual filtering** - Period selectors, search, multi-select filters
+4. **Inline actions** - Expand rows, bulk operations, quick edits
+5. **Visual hierarchy** - Metrics → Charts → Data tables
+
+---
+
+## Page 1: Overview
+
+### Purpose
+Consolidated dashboard showing key metrics, visual analytics, and complete data table with filtering.
+
+### Layout Structure
+```
+┌─────────────────────────────────────────┐
+│ Header: Title + Period Selector         │
+├─────────────────────────────────────────┤
+│ Metrics Row (3-4 cards)                 │
+│ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐   │
+│ │ KPI1 │ │ KPI2 │ │ KPI3 │ │ KPI4 │   │
+│ └──────┘ └──────┘ └──────┘ └──────┘   │
+├─────────────────────────────────────────┤
+│ Chart Card (Pie/Bar/Line)               │
+│ ┌─────────────────────────────────────┐ │
+│ │     Visual Analytics                │ │
+│ └─────────────────────────────────────┘ │
+├─────────────────────────────────────────┤
+│ Search & Filter Bar                     │
+│ [Search] [Filter1▼] [Filter2▼]         │
+├─────────────────────────────────────────┤
+│ Data Table (Expandable Rows)           │
+│ ☐ Row 1 [Details] [Actions]      [>]   │
+│ ☐ Row 2 [Details] [Actions]      [>]   │
+│   └─ Expanded: Additional info          │
+│ ☐ Row 3 [Details] [Actions]      [>]   │
+└─────────────────────────────────────────┘
+```
+
+### Components Breakdown
+
+#### 1. Period Selector
+**Location**: Top right of header  
+**Function**: Filter all data by time range  
+**Options**: Last 7 days, Last 30 days, Last 90 days, All time  
+**Implementation**:
+```tsx
+const [period, setPeriod] = useState<TimePeriod>('last-7-days');
+
+// Filter data based on period
+const filteredByPeriod = data.filter(item => {
+  const itemDate = new Date(item.created_at);
+  const now = new Date();
+  const daysAgo = (now - itemDate) / (1000 * 60 * 60 * 24);
+  
+  switch(period) {
+    case 'last-7-days': return daysAgo <= 7;
+    case 'last-30-days': return daysAgo <= 30;
+    // ... etc
+  }
+});
+```
+
+#### 2. Metrics Cards
+**Layout**: Grid (2 cols mobile, 3-4 cols desktop)  
+**Structure**:
+- Icon (top-left, colored background)
+- Label (small, muted text)
+- Value (large, bold number)
+- Optional: Trend indicator or subtitle
+
+**Data Calculation**:
+```tsx
+// Example: Calculate metrics from filtered data
+const totalCount = filteredByPeriod.length;
+const actionRequired = filteredByPeriod.filter(item => 
+  item.status === 'pending' || item.requires_action
+).length;
+const completedCount = filteredByPeriod.filter(item => 
+  item.status === 'completed'
+).length;
+```
+
+**Styling Pattern**:
+```tsx
+<Card className="bg-card border-slate-300 shadow-md">
+  <CardContent className="p-5">
+    <div className="flex items-center gap-3">
+      <div className="p-3 bg-primary/10 rounded-xl">
+        <Icon className="w-5 h-5 text-primary" />
+      </div>
+      <div className="flex-1">
+        <p className="text-xs text-muted-foreground">Label</p>
+        <p className="text-2xl font-bold">{value}</p>
+      </div>
+    </div>
+  </CardContent>
+</Card>
+```
+
+#### 3. Chart Card
+**Purpose**: Visual representation of data distribution  
+**Chart Types**: Pie (distribution), Bar (comparison), Line (trends)  
+**Library**: Recharts  
+
+**Pie Chart Example**:
+```tsx
+// Calculate distribution
+const outcomes = [
+  { name: 'Category A', value: data.filter(d => d.category === 'A').length },
+  { name: 'Category B', value: data.filter(d => d.category === 'B').length },
+  // ...
+];
+
+<ResponsiveContainer width="100%" height={300}>
+  <PieChart>
+    <Pie
+      data={outcomes}
+      dataKey="value"
+      nameKey="name"
+      cx="50%"
+      cy="50%"
+      innerRadius={60}
+      outerRadius={90}
+      label
+    >
+      {outcomes.map((entry, index) => (
+        <Cell key={index} fill={COLORS[index]} />
+      ))}
+    </Pie>
+    <Tooltip />
+    <Legend />
+  </PieChart>
+</ResponsiveContainer>
+```
+
+#### 4. Search & Filter Bar
+**Components**:
+- Search input (full-text search)
+- Multi-select dropdown filters
+- Clear filters button
+
+**Search Implementation**:
+```tsx
+const [searchQuery, setSearchQuery] = useState('');
+
+const searchFiltered = data.filter(item =>
+  item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  item.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  item.customer_name?.toLowerCase().includes(searchQuery.toLowerCase())
+);
+```
+
+**Multi-Select Filter**:
+```tsx
+const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+
+// Toggle category
+const toggleCategory = (category: string) => {
+  const newSet = new Set(selectedCategories);
+  if (newSet.has(category)) {
+    newSet.delete(category);
+  } else {
+    newSet.add(category);
+  }
+  setSelectedCategories(newSet);
+};
+
+// Apply filter
+const categoryFiltered = selectedCategories.size === 0 
+  ? data 
+  : data.filter(item => selectedCategories.has(item.category));
+```
+
+#### 5. Data Table with Expandable Rows
+**Features**:
+- Checkbox selection for bulk actions
+- Expandable rows for additional details
+- Inline action buttons
+- Status badges
+- Timestamp formatting
+
+**Row Structure**:
+```tsx
+{filteredData.map((item) => (
+  <div key={item.id}>
+    {/* Main Row */}
+    <div className="flex items-center gap-3 p-4 border-b hover:bg-muted/30">
+      <Checkbox 
+        checked={selectedIds.has(item.id)}
+        onCheckedChange={() => toggleSelection(item.id)}
+      />
+      
+      <div className="flex-1 grid grid-cols-3 gap-4">
+        <div>
+          <p className="font-semibold">{item.title}</p>
+          <p className="text-xs text-muted-foreground">{item.subtitle}</p>
+        </div>
+        <div>
+          <Badge variant={getStatusVariant(item.status)}>
+            {item.status}
+          </Badge>
+        </div>
+        <div className="text-xs text-muted-foreground">
+          {formatDistanceToNow(new Date(item.created_at))} ago
+        </div>
+      </div>
+      
+      <Button 
+        variant="ghost" 
+        size="sm"
+        onClick={() => toggleExpanded(item.id)}
+      >
+        {expandedId === item.id ? <ChevronDown /> : <ChevronRight />}
+      </Button>
+    </div>
+    
+    {/* Expanded Details */}
+    {expandedId === item.id && (
+      <div className="bg-muted/20 p-6 border-b">
+        {/* Additional details, transcript, metadata */}
+        <div className="space-y-4">
+          <div>
+            <h4 className="font-semibold mb-2">Details</h4>
+            <p className="text-sm">{item.details}</p>
+          </div>
+          {/* Action buttons */}
+          <div className="flex gap-2">
+            <Button size="sm">Primary Action</Button>
+            <Button size="sm" variant="outline">Secondary Action</Button>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+))}
+```
+
+#### 6. Bulk Actions
+**Location**: Appears when items selected  
+**Actions**: Archive, Export, Delete, Mark as Complete  
+
+```tsx
+{selectedIds.size > 0 && (
+  <div className="fixed bottom-20 md:bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-auto">
+    <Card className="bg-primary text-primary-foreground shadow-xl">
+      <CardContent className="p-4 flex items-center gap-3">
+        <span className="font-semibold">{selectedIds.size} selected</span>
+        <Button size="sm" variant="secondary" onClick={handleArchive}>
+          Archive
+        </Button>
+        <Button size="sm" variant="secondary" onClick={handleExport}>
+          Export
+        </Button>
+      </CardContent>
+    </Card>
+  </div>
+)}
+```
+
+---
+
+## Page 2: Action Required
+
+### Purpose
+Filtered view showing only items requiring user attention.
+
+### Layout Structure
+```
+┌─────────────────────────────────────────┐
+│ Header: Title + Count Badge             │
+├─────────────────────────────────────────┤
+│ Filter Tabs                             │
+│ [All] [Urgent] [Follow-ups] [Pending]  │
+├─────────────────────────────────────────┤
+│ Action Items List                       │
+│ ┌─────────────────────────────────────┐ │
+│ │ 🔴 Item 1 - Urgent                  │ │
+│ │    Details | [Take Action]          │ │
+│ └─────────────────────────────────────┘ │
+│ ┌─────────────────────────────────────┐ │
+│ │ 🟡 Item 2 - Follow-up needed        │ │
+│ │    Details | [Take Action]          │ │
+│ └─────────────────────────────────────┘ │
+└─────────────────────────────────────────┘
+```
+
+### Key Differences from Overview
+1. **Pre-filtered data** - Only shows items with `requires_action: true`
+2. **Priority indicators** - Visual urgency markers (colors, icons)
+3. **Quick actions** - Prominent action buttons
+4. **Grouped by urgency** - Optional tabs to filter by priority level
+
+### Implementation Pattern
+```tsx
+// Filter for action-required items
+const actionItems = data.filter(item => 
+  item.requires_action || 
+  item.status === 'pending' ||
+  item.follow_up_required
+);
+
+// Sort by priority/urgency
+const sortedItems = actionItems.sort((a, b) => {
+  const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
+  return priorityOrder[a.priority] - priorityOrder[b.priority];
+});
+```
+
+---
+
+## Page 3: Configuration
+
+### Purpose
+Settings page for customizing system behavior, using sidebar navigation for focused editing.
+
+### Layout Structure
+```
+┌──────────┬──────────────────────────────┐
+│          │ Content Area                 │
+│ Sidebar  │                              │
+│          │ ┌──────────────────────────┐ │
+│ ┌──────┐ │ │                          │ │
+│ │Voice │ │ │  Section-specific        │ │
+│ │  ✓   │ │ │  configuration UI        │ │
+│ └──────┘ │ │                          │ │
+│          │ │                          │ │
+│ ┌──────┐ │ │                          │ │
+│ │Know- │ │ │                          │ │
+│ │ledge │ │ │                          │ │
+│ └──────┘ │ │                          │ │
+│          │ └──────────────────────────┘ │
+│ ┌──────┐ │                              │
+│ │Email │ │                              │
+│ └──────┘ │                              │
+└──────────┴──────────────────────────────┘
+```
+
+### Sidebar Navigation Pattern
+```tsx
+type ConfigSection = 'section1' | 'section2' | 'section3';
+
+const NAV_ITEMS = [
+  { id: 'section1', label: 'Section 1', icon: Icon1, description: 'Brief desc' },
+  { id: 'section2', label: 'Section 2', icon: Icon2, description: 'Brief desc' },
+  { id: 'section3', label: 'Section 3', icon: Icon3, description: 'Brief desc' },
+];
+
+const [activeSection, setActiveSection] = useState<ConfigSection>('section1');
+
+// Sidebar
+<nav className="space-y-2">
+  {NAV_ITEMS.map((item) => {
+    const Icon = item.icon;
+    const isActive = activeSection === item.id;
+    return (
+      <button
+        key={item.id}
+        onClick={() => setActiveSection(item.id)}
+        className={cn(
+          "w-full flex items-center gap-4 px-4 py-4 rounded-xl transition-all",
+          isActive
+            ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg"
+            : "hover:bg-muted/50"
+        )}
+      >
+        <Icon className="w-5 h-5" />
+        <div className="flex-1 text-left">
+          <div className="font-bold text-sm">{item.label}</div>
+          <div className="text-xs opacity-80">{item.description}</div>
+        </div>
+        {isActive && <ChevronRight className="w-5 h-5" />}
+      </button>
+    );
+  })}
+</nav>
+
+// Content area - conditional rendering
+<div className="flex-1">
+  {activeSection === 'section1' && <Section1Component />}
+  {activeSection === 'section2' && <Section2Component />}
+  {activeSection === 'section3' && <Section3Component />}
+</div>
+```
+
+### Configuration Section Types
+
+#### 1. Selection Grid (e.g., Voice Selection)
+**Use case**: Choose one option from multiple choices  
+**Pattern**: Grid of cards with active state
+
+```tsx
+const [selectedOption, setSelectedOption] = useState('option1');
+
+<div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+  {OPTIONS.map((option) => (
+    <button
+      key={option.id}
+      onClick={() => setSelectedOption(option.id)}
+      className={cn(
+        "p-6 rounded-2xl border-2 transition-all",
+        selectedOption === option.id
+          ? "border-primary bg-primary/10 ring-4 ring-primary/20"
+          : "border-slate-200 hover:border-primary/40"
+      )}
+    >
+      <div className="flex justify-between mb-3">
+        <span className="font-bold">{option.name}</span>
+        {selectedOption === option.id && <Check className="w-5 h-5" />}
+      </div>
+      <p className="text-sm text-muted-foreground">{option.description}</p>
+    </button>
+  ))}
+</div>
+```
+
+#### 2. Text Editor (e.g., Knowledge Base)
+**Use case**: Edit large text content  
+**Pattern**: Textarea with Save/Cancel actions
+
+```tsx
+const [content, setContent] = useState(DEFAULT_CONTENT);
+const [isEditing, setIsEditing] = useState(false);
+
+{isEditing ? (
+  <div className="space-y-4">
+    <Textarea
+      value={content}
+      onChange={(e) => setContent(e.target.value)}
+      className="min-h-[400px] font-mono text-sm"
+    />
+    <div className="flex gap-3">
+      <Button onClick={handleSave}>
+        <Check className="w-4 h-4 mr-2" />
+        Save Changes
+      </Button>
+      <Button variant="outline" onClick={() => setIsEditing(false)}>
+        Cancel
+      </Button>
+    </div>
+  </div>
+) : (
+  <div className="bg-muted/30 rounded-xl p-4 border">
+    <pre className="text-sm whitespace-pre-wrap">{content}</pre>
+    <Button onClick={() => setIsEditing(true)} className="mt-4">
+      Edit
+    </Button>
+  </div>
+)}
+```
+
+#### 3. Template Manager (e.g., Email Templates)
+**Use case**: Manage multiple editable templates  
+**Pattern**: Accordion-style with inline editing
+
+```tsx
+const [templates, setTemplates] = useState(DEFAULT_TEMPLATES);
+const [editingKey, setEditingKey] = useState<string | null>(null);
+
+{Object.entries(templates).map(([key, template]) => (
+  <Card key={key}>
+    <CardHeader className="flex justify-between">
+      <div>
+        <CardTitle>{formatKey(key)}</CardTitle>
+        <CardDescription>When this is used</CardDescription>
+      </div>
+      {editingKey !== key && (
+        <Button size="sm" onClick={() => setEditingKey(key)}>
+          Edit
+        </Button>
+      )}
+    </CardHeader>
+    <CardContent>
+      {editingKey === key ? (
+        <div className="space-y-3">
+          <Textarea
+            value={template}
+            onChange={(e) => updateTemplate(key, e.target.value)}
+            className="min-h-[200px] font-mono text-xs"
+          />
+          <Button onClick={() => saveTemplate(key)}>Save</Button>
+        </div>
+      ) : (
+        <pre className="text-xs font-mono bg-muted/20 p-3 rounded">
+          {template}
+        </pre>
+      )}
+    </CardContent>
+  </Card>
+))}
+```
+
+---
+
+## Global Layout Components
+
+### 1. Top Navigation Bar
+**Desktop**: Horizontal tabs  
+**Mobile**: Hidden (replaced by bottom nav)
+
+```tsx
+<nav className="hidden md:flex items-center gap-1 border-b">
+  {navItems.map((item) => (
+    <Link
+      key={item.path}
+      to={item.path}
+      className={cn(
+        "px-4 py-3 font-semibold transition-all",
+        isActive 
+          ? "text-primary border-b-2 border-primary" 
+          : "text-muted-foreground hover:text-foreground"
+      )}
+    >
+      <item.icon className="w-4 h-4 mr-2 inline" />
+      {item.label}
+    </Link>
+  ))}
+</nav>
+```
+
+### 2. Mobile Bottom Navigation
+**Mobile only**: Fixed bottom bar with icons
+
+```tsx
+<nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t z-50">
+  <div className="grid grid-cols-3 gap-0.5 p-1.5">
+    {navItems.map((item) => (
+      <Link
+        key={item.path}
+        to={item.path}
+        className={cn(
+          "flex flex-col items-center gap-1 py-2 rounded-lg transition-all",
+          isActive 
+            ? "bg-primary text-primary-foreground" 
+            : "text-muted-foreground"
+        )}
+      >
+        <item.icon className="w-5 h-5" />
+        <span className="text-xs font-medium">{item.label}</span>
+      </Link>
+    ))}
+  </div>
+</nav>
+```
+
+### 3. Pull-to-Refresh (Mobile)
+**Component**: Wraps page content on mobile
+
+```tsx
+<PullToRefresh onRefresh={fetchData}>
+  <div className="space-y-6 pb-24 md:pb-8">
+    {/* Page content */}
+  </div>
+</PullToRefresh>
+```
+
+---
+
+## Data Flow Architecture
+
+### 1. Context Provider Pattern
+```tsx
+// DataContext.tsx
+export const DataContext = createContext<DataContextType | undefined>(undefined);
+
+export function DataProvider({ children }) {
+  const [data, setData] = useState<DataItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const fetchData = async () => {
+    setIsLoading(true);
+    const result = await supabase.from('table').select('*');
+    setData(result.data || []);
+    setIsLoading(false);
+  };
+  
+  const updateItem = async (id: string, updates: Partial<DataItem>) => {
+    await supabase.from('table').update(updates).eq('id', id);
+    await fetchData(); // Refresh
+  };
+  
+  return (
+    <DataContext.Provider value={{ data, isLoading, fetchData, updateItem }}>
+      {children}
+    </DataContext.Provider>
+  );
+}
+
+// Usage in components
+const { data, isLoading, fetchData } = useData();
+```
+
+### 2. Real-time Subscriptions (Optional)
+```tsx
+useEffect(() => {
+  const subscription = supabase
+    .channel('table-changes')
+    .on('postgres_changes', 
+      { event: '*', schema: 'public', table: 'table_name' },
+      (payload) => {
+        fetchData(); // Refresh on any change
+      }
+    )
+    .subscribe();
+    
+  return () => {
+    subscription.unsubscribe();
+  };
+}, []);
+```
+
+---
+
+## Styling System
+
+### Color Palette
+```css
+/* Primary actions, active states */
+--primary: 174 72% 56%; /* Teal */
+--primary-foreground: 0 0% 100%;
+
+/* Cards, backgrounds */
+--card: 0 0% 100%;
+--muted: 210 40% 96%;
+
+/* Text */
+--foreground: 222 47% 11%;
+--muted-foreground: 215 16% 47%;
+
+/* Borders */
+--border: 214 32% 91%;
+```
+
+### Component Styling Patterns
+
+**Card**:
+```tsx
+className="bg-card border-slate-300 shadow-md rounded-xl"
+```
+
+**Active State**:
+```tsx
+className="bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg"
+```
+
+**Hover State**:
+```tsx
+className="hover:bg-muted/50 hover:shadow-md transition-all duration-300"
+```
+
+**Badge**:
+```tsx
+<Badge variant={status === 'completed' ? 'default' : 'secondary'}>
+  {status}
+</Badge>
+```
+
+---
+
+## Responsive Breakpoints
+
+```tsx
+// Mobile: < 768px
+// Desktop: >= 768px
+
+// Grid patterns
+className="grid grid-cols-1 md:grid-cols-3 gap-4"
+
+// Visibility
+className="hidden md:block" // Desktop only
+className="md:hidden" // Mobile only
+
+// Spacing
+className="p-4 md:p-6" // More padding on desktop
+className="pb-24 md:pb-8" // Account for bottom nav on mobile
+```
+
+---
+
+## Key Utilities & Helpers
+
+### Date Formatting
+```tsx
+import { formatDistanceToNow, format } from 'date-fns';
+
+// Relative: "2 hours ago"
+formatDistanceToNow(new Date(item.created_at))
+
+// Absolute: "Feb 5, 2026"
+format(new Date(item.created_at), 'MMM d, yyyy')
+```
+
+### Status Colors
+```tsx
+const getStatusColor = (status: string) => {
+  const colors = {
+    completed: 'text-green-600 bg-green-50',
+    pending: 'text-yellow-600 bg-yellow-50',
+    urgent: 'text-red-600 bg-red-50',
+  };
+  return colors[status] || 'text-gray-600 bg-gray-50';
+};
+```
+
+### Class Name Merging
+```tsx
+import { cn } from '@/lib/utils';
+
+// Conditional classes
+className={cn(
+  "base-classes",
+  isActive && "active-classes",
+  isDisabled && "disabled-classes"
+)}
+```
+
+---
+
+## Summary: Replication Checklist
+
+To recreate this dashboard with different data:
+
+1. **Define your data model** - What fields does each item have?
+2. **Create 3 pages** - Overview (all data), Action Required (filtered), Configuration (settings)
+3. **Implement navigation** - Top nav (desktop) + bottom nav (mobile)
+4. **Build Overview page**:
+   - Period selector
+   - 3-4 metric cards (calculated from data)
+   - 1 chart (distribution/trends)
+   - Search + filters
+   - Expandable data table
+5. **Build Action Required page** - Pre-filtered version of Overview
+6. **Build Configuration page** - Sidebar navigation + section-specific UIs
+7. **Add data context** - Provider pattern for shared state
+8. **Style consistently** - Use defined color palette and component patterns
+9. **Make responsive** - Mobile-first with breakpoints
+10. **Add interactions** - Pull-to-refresh, bulk actions, toast notifications
+
+All components follow the same structural patterns - just swap out data fields and adjust filtering logic for your use case.

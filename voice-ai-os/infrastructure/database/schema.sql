@@ -297,11 +297,11 @@ CREATE OR REPLACE FUNCTION get_conversation_events(
   event_type VARCHAR,
   payload JSONB,
   sequence_number INTEGER,
-  timestamp TIMESTAMPTZ
+  event_timestamp TIMESTAMPTZ
 ) AS $$
 BEGIN
   RETURN QUERY
-  SELECT e.event_id, e.event_type, e.payload, e.sequence_number, e.timestamp
+  SELECT e.event_id, e.event_type, e.payload, e.sequence_number, e.timestamp as event_timestamp
   FROM events e
   WHERE e.trace_id = p_trace_id
   ORDER BY e.sequence_number ASC;
@@ -375,3 +375,79 @@ VALUES (
   '+61400123456',
   'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'
 );
+
+-- =============================================================================
+-- ADMIN CONTROL PANEL TABLES (PHASE 8B)
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS config_versions (
+  version_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  section VARCHAR(50) NOT NULL,
+  content JSONB NOT NULL,
+  scope VARCHAR(20) NOT NULL CHECK (scope IN ('global', 'tenant')),
+  tenant_id UUID REFERENCES tenants(id),
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  created_by VARCHAR(255) NOT NULL,
+  change_description TEXT,
+  is_current BOOLEAN DEFAULT TRUE,
+  diff_from_previous TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_config_versions_section ON config_versions(section, is_current);
+CREATE INDEX IF NOT EXISTS idx_config_versions_tenant ON config_versions(tenant_id);
+
+CREATE TABLE IF NOT EXISTS config_audit_log (
+  audit_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id VARCHAR(255) NOT NULL,
+  action VARCHAR(50) NOT NULL,
+  section VARCHAR(50) NOT NULL,
+  version_id UUID REFERENCES config_versions(version_id),
+  tenant_id UUID REFERENCES tenants(id),
+  timestamp TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  metadata JSONB
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_log_user ON config_audit_log(user_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_log_section ON config_audit_log(section, timestamp DESC);
+
+CREATE TABLE IF NOT EXISTS tenant_caps (
+  tenant_id UUID PRIMARY KEY REFERENCES tenants(id),
+  soft_cap_minutes INT NOT NULL DEFAULT 1000,
+  hard_cap_minutes INT NOT NULL DEFAULT 1200,
+  minutes_used INT DEFAULT 0,
+  cap_reset_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  overage_allowed BOOLEAN DEFAULT FALSE,
+  alert_threshold_percent INT DEFAULT 80,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS system_errors (
+  error_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID REFERENCES tenants(id),
+  call_id VARCHAR(255),
+  severity VARCHAR(20) NOT NULL CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+  category VARCHAR(50) NOT NULL,
+  message TEXT NOT NULL,
+  event_trail JSONB,
+  explanation TEXT,
+  suggested_action TEXT,
+  resolved BOOLEAN DEFAULT FALSE,
+  timestamp TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_errors_tenant ON system_errors(tenant_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_errors_severity ON system_errors(severity, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_errors_resolved ON system_errors(resolved, timestamp DESC);
+
+CREATE TABLE IF NOT EXISTS call_reasons (
+  call_id VARCHAR(255) PRIMARY KEY,
+  tenant_id UUID REFERENCES tenants(id),
+  reason VARCHAR(50) NOT NULL,
+  sub_reason VARCHAR(100),
+  confidence FLOAT,
+  timestamp TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_call_reasons_tenant ON call_reasons(tenant_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_call_reasons_reason ON call_reasons(reason, timestamp DESC);

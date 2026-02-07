@@ -211,6 +211,124 @@ class DatabaseService:
                 cur.close()
                 self.put_connection(conn)
     
+    def upsert_call_log(
+        self,
+        *,
+        call_id: str,
+        tenant_id: str,
+        caller_phone: Optional[str] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        duration_seconds: Optional[int] = None,
+        outcome: Optional[str] = None,
+        transcript: Optional[str] = None,
+        summary: Optional[str] = None,
+        reason_for_calling: Optional[str] = None,
+        captured_data: Optional[Dict[str, Any]] = None,
+        requires_action: Optional[bool] = None,
+        priority: Optional[str] = None,
+        status: Optional[str] = None,
+        call_sid: Optional[str] = None,
+        conversation_id: Optional[str] = None,
+        stt_cost_usd: Optional[float] = None,
+        llm_cost_usd: Optional[float] = None,
+        tts_cost_usd: Optional[float] = None,
+        total_cost_usd: Optional[float] = None,
+    ) -> Optional[str]:
+        """
+        Insert or update a call_logs record for the dashboard.
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            cur = conn.cursor()
+            if total_cost_usd is None:
+                total_cost_usd = (stt_cost_usd or 0.0) + (llm_cost_usd or 0.0) + (tts_cost_usd or 0.0)
+            query = """
+                INSERT INTO call_logs (
+                    call_id,
+                    tenant_id,
+                    caller_phone,
+                    start_time,
+                    end_time,
+                    duration_seconds,
+                    outcome,
+                    transcript,
+                    summary,
+                    reason_for_calling,
+                    captured_data,
+                    requires_action,
+                    priority,
+                    status,
+                    call_sid,
+                    conversation_id,
+                    stt_cost_usd,
+                    llm_cost_usd,
+                    tts_cost_usd,
+                    total_cost_usd,
+                    created_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                ON CONFLICT (call_id) DO UPDATE SET
+                    caller_phone = COALESCE(EXCLUDED.caller_phone, call_logs.caller_phone),
+                    start_time = COALESCE(call_logs.start_time, EXCLUDED.start_time),
+                    end_time = COALESCE(EXCLUDED.end_time, call_logs.end_time),
+                    duration_seconds = COALESCE(EXCLUDED.duration_seconds, call_logs.duration_seconds),
+                    outcome = COALESCE(EXCLUDED.outcome, call_logs.outcome),
+                    transcript = COALESCE(EXCLUDED.transcript, call_logs.transcript),
+                    summary = COALESCE(EXCLUDED.summary, call_logs.summary),
+                    reason_for_calling = COALESCE(EXCLUDED.reason_for_calling, call_logs.reason_for_calling),
+                    captured_data = COALESCE(EXCLUDED.captured_data, call_logs.captured_data),
+                    requires_action = COALESCE(EXCLUDED.requires_action, call_logs.requires_action),
+                    priority = COALESCE(EXCLUDED.priority, call_logs.priority),
+                    status = COALESCE(EXCLUDED.status, call_logs.status),
+                    call_sid = COALESCE(EXCLUDED.call_sid, call_logs.call_sid),
+                    conversation_id = COALESCE(EXCLUDED.conversation_id, call_logs.conversation_id),
+                    stt_cost_usd = COALESCE(EXCLUDED.stt_cost_usd, call_logs.stt_cost_usd),
+                    llm_cost_usd = COALESCE(EXCLUDED.llm_cost_usd, call_logs.llm_cost_usd),
+                    tts_cost_usd = COALESCE(EXCLUDED.tts_cost_usd, call_logs.tts_cost_usd),
+                    total_cost_usd = COALESCE(EXCLUDED.total_cost_usd, call_logs.total_cost_usd),
+                    updated_at = NOW()
+                RETURNING id
+            """
+            cur.execute(
+                query,
+                (
+                    call_id,
+                    tenant_id,
+                    caller_phone,
+                    start_time,
+                    end_time,
+                    duration_seconds,
+                    outcome,
+                    transcript,
+                    summary,
+                    reason_for_calling,
+                    psycopg2.extras.Json(captured_data or {}),
+                    requires_action,
+                    priority,
+                    status,
+                    call_sid,
+                    conversation_id,
+                    stt_cost_usd,
+                    llm_cost_usd,
+                    tts_cost_usd,
+                    total_cost_usd,
+                ),
+            )
+            row = cur.fetchone()
+            conn.commit()
+            return row[0] if row else None
+        except Exception as e:
+            logger.error(f"Failed to upsert call log: {e}")
+            if conn:
+                conn.rollback()
+            return None
+        finally:
+            if conn:
+                cur.close()
+                self.put_connection(conn)
+
     def close(self):
         """Close connection pool."""
         if self.pool:

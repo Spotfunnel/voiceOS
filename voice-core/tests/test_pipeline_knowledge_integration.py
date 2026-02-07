@@ -171,7 +171,7 @@ def test_pipeline_combines_static_knowledge(monkeypatch):
     """Pipeline should pass static knowledge through knowledge_combiner."""
     combined_args = {}
 
-    def fake_combine(*, layer1_core_prompt, static_knowledge, layer2_system_prompt):
+    def fake_combine(*, static_knowledge, layer2_system_prompt):
         combined_args["static"] = static_knowledge
         combined_args["layer2"] = layer2_system_prompt
         return "combined"
@@ -200,7 +200,7 @@ def test_pipeline_with_empty_static_knowledge(monkeypatch):
     """Static knowledge is optional; pipeline should handle missing value."""
     combined_args = {}
 
-    def fake_combine(*, layer1_core_prompt, static_knowledge, layer2_system_prompt):
+    def fake_combine(*, static_knowledge, layer2_system_prompt):
         combined_args["static"] = static_knowledge
         return "combined"
 

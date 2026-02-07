@@ -40,7 +40,7 @@
 
 - **STT → LLM → TTS Pipeline**: Complete streaming pipeline
   - **STT**: Deepgram (`nova-2` model, `en-AU` language)
-  - **LLM**: OpenAI GPT-4o (configurable via `OPENAI_MODEL`)
+  - **LLM**: Gemini 2.5 Flash (primary), OpenAI GPT-4.1 (backup)
   - **TTS**: ElevenLabs (configurable voice ID)
 - **Frame-Based Architecture**: Uses Pipecat frame processors
 - **Streaming**: Non-blocking async operations throughout
@@ -147,7 +147,7 @@ DEEPGRAM_API_KEY=your_deepgram_api_key
 
 # OpenAI LLM
 OPENAI_API_KEY=your_openai_api_key
-OPENAI_MODEL=gpt-4o  # Optional, defaults to gpt-4o
+OPENAI_MODEL=gpt-4.1  # Optional, defaults to gpt-4.1
 
 # ElevenLabs TTS
 ELEVENLABS_API_KEY=your_elevenlabs_api_key
@@ -245,7 +245,7 @@ python -m src.main
 
 ### Day 3: Multi-ASR Voting
 - Add AssemblyAI STT service
-- Add GPT-4o-audio STT service
+- Add OpenAI audio STT service
 - Implement LLM ranking for multi-ASR
 - Use multi-ASR only for critical data
 

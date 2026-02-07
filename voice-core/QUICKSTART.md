@@ -6,7 +6,7 @@ Production-grade telephony integration and audio pipeline for Voice AI.
 
 - Python 3.11+
 - API keys for:
-  - Daily.co OR Twilio (telephony)
+  - Daily.co OR Telnyx (telephony)
   - Deepgram (STT)
   - OpenAI (LLM)
   - Cartesia (TTS primary)
@@ -28,15 +28,16 @@ Create `.env` file:
 DAILY_ROOM_URL=https://example.daily.co/room
 DAILY_ROOM_TOKEN=your_daily_token
 
-TWILIO_ACCOUNT_SID=your_twilio_sid
-TWILIO_AUTH_TOKEN=your_twilio_token
+TELNYX_API_KEY=your_telnyx_api_key
+TELNYX_CONNECTION_ID=your_telnyx_connection_id
+TELNYX_SAMPLE_RATE=16000  # HD audio (vs 8kHz)
 
 # STT
 DEEPGRAM_API_KEY=your_deepgram_key
 
 # LLM
 OPENAI_API_KEY=your_openai_key
-OPENAI_MODEL=gpt-4o
+OPENAI_MODEL=gpt-4.1
 
 # TTS
 CARTESIA_API_KEY=your_cartesia_key
@@ -71,15 +72,15 @@ curl -X POST http://localhost:8000/start_call \
   }'
 ```
 
-### Start a Twilio Call
+### Start a Telnyx Call
 
 ```bash
 curl -X POST http://localhost:8000/start_call \
   -H "Content-Type: application/json" \
   -d '{
     "call_id": "call_456",
-    "transport": "twilio",
-    "call_sid": "CA123456",
+    "transport": "telnyx",
+    "call_sid": "call_control_id_here",
     "system_prompt": "You are a helpful AI assistant"
   }'
 ```
@@ -138,10 +139,11 @@ AudioRawFrame → STT (Deepgram) → TranscriptionFrame
 
 ✅ **Multi-provider TTS** - Cartesia primary ($0.000037/char), ElevenLabs fallback  
 ✅ **Circuit breakers** - Automatic failover on provider outages  
-✅ **Audio encoding validation** - Prevents production failures (mulaw 8kHz for Twilio PSTN)  
+✅ **Audio encoding validation** - Prevents production failures (PCMU 16kHz HD for Telnyx PSTN)  
 ✅ **VAD tuning** - 250ms threshold for Australian accent  
 ✅ **Graceful shutdown** - Completes active calls before exit  
 ✅ **Event streaming** - Real-time call events via WebSocket  
+✅ **HD Audio** - 16kHz sample rate for better voice quality (vs 8kHz)  
 
 ## Cost Optimization
 
@@ -152,7 +154,7 @@ AudioRawFrame → STT (Deepgram) → TranscriptionFrame
 ## Troubleshooting
 
 ### Audio encoding errors
-- **Twilio PSTN requires mulaw 8kHz** - Validated at initialization
+- **Telnyx PSTN supports PCMU 16kHz HD audio** - Validated at initialization
 - Daily.co uses PCM 16kHz - No conversion needed
 
 ### Circuit breaker open

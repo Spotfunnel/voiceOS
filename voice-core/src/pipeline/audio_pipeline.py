@@ -16,11 +16,46 @@ import os
 from typing import Optional
 
 from pipecat.pipeline.pipeline import Pipeline
-from pipecat.services.deepgram import DeepgramSTTService
+from pipecat.frames.frames import Frame
+from pipecat.processors.frame_processor import FrameProcessor
+try:
+    from pipecat.services.deepgram import DeepgramSTTService
+except Exception:  # pragma: no cover - optional provider dependency
+    DeepgramSTTService = None
 from pipecat.services.elevenlabs import ElevenLabsTTSService
 
 from ..events.event_emitter import EventEmitter
 from ..llm.multi_provider_llm import MultiProviderLLM
+from ..processors.llm_tools_processor import LLMToolsProcessor
+from ..processors.knowledge_filler_processor import KnowledgeFillerProcessor
+from ..processors.multi_asr_processor import MultiASRProcessor
+class STTWithFallback(FrameProcessor):
+    """
+    STT wrapper that falls back to multi-ASR if primary fails.
+    """
+
+    def __init__(self, primary, fallback):
+        super().__init__()
+        self.primary = primary
+        self.fallback = fallback
+        self.use_fallback = False
+
+    async def process_frame(self, frame: Frame, direction):
+        if not self.use_fallback:
+            try:
+                async for output in self.primary.process_frame(frame, direction):
+                    yield output
+                return
+            except Exception:
+                self.use_fallback = True
+
+        if self.fallback:
+            async for output in self.fallback.process_frame(frame, direction):
+                yield output
+            return
+
+        yield frame
+from ..tools.knowledge_tool import KNOWLEDGE_QUERY_TOOL, register_knowledge_tool
 from .frame_observer import PipelineFrameObserver
 
 
@@ -37,7 +72,8 @@ class AudioPipeline:
     def __init__(
         self,
         event_emitter: Optional[EventEmitter] = None,
-        system_prompt: str = "You are a helpful AI assistant for SpotFunnel."
+        system_prompt: str = "You are a helpful AI assistant for SpotFunnel.",
+        tenant_id: Optional[str] = None,
     ):
         """
         Initialize audio pipeline.
@@ -48,29 +84,43 @@ class AudioPipeline:
         """
         self.event_emitter = event_emitter
         self.system_prompt = system_prompt
+        self.tenant_id = tenant_id
         
         # Initialize services
         self.stt = self._create_stt_service()
         self.llm = self._create_llm_service()
         self.tts = self._create_tts_service()
+        self.knowledge_filler = KnowledgeFillerProcessor(tenant_id=self.tenant_id)
+        self.tools_processor = None
+        if self.tenant_id:
+            self.tools_processor = LLMToolsProcessor(
+                tools=[KNOWLEDGE_QUERY_TOOL],
+                tool_choice="auto",
+            )
+            register_knowledge_tool(self.llm, tenant_id=self.tenant_id)
         
         # Frame observer for event emission
         self.frame_observer = PipelineFrameObserver(event_emitter=event_emitter)
         
-    def _create_stt_service(self) -> DeepgramSTTService:
+    def _create_stt_service(self):
         """Create Deepgram STT service (optimized for Australian accent)"""
+        if DeepgramSTTService is None:
+            raise RuntimeError("Deepgram STT dependency not available.")
         api_key = os.getenv("DEEPGRAM_API_KEY")
         if not api_key:
             raise ValueError("DEEPGRAM_API_KEY must be set in environment")
         
         # Deepgram Nova-3 model optimized for low-latency Australian English
-        return DeepgramSTTService(
+        primary = DeepgramSTTService(
             api_key=api_key,
             model="nova-3",
             language="en-AU",
             sample_rate=16000,
             channels=1,
         )
+        fallback = MultiASRProcessor.from_env(event_emitter=self.event_emitter)
+        fallback.enable_multi_asr()
+        return STTWithFallback(primary=primary, fallback=fallback)
     
     def _create_llm_service(self) -> MultiProviderLLM:
         """
@@ -112,15 +162,27 @@ class AudioPipeline:
             Configured Pipeline instance
         """
         # Create pipeline with frame processors
-        pipeline = Pipeline([
+        processors = [
             transport_input,           # Audio input (Daily.co)
             self.stt,                 # Speech-to-text (Deepgram)
             self.frame_observer,      # Observe frames for event emission
-            self.llm,                 # Language model (multi-provider: Gemini/GPT-4.1)
-            self.frame_observer,      # Observe LLM output frames
-            self.tts,                 # Text-to-speech (ElevenLabs)
-            transport_output,         # Audio output (Daily.co)
-        ])
+        ]
+        if self.tools_processor:
+            processors.append(self.tools_processor)
+        processors.extend(
+            [
+                self.llm,                 # Language model (multi-provider: Gemini/GPT-4.1)
+                self.knowledge_filler,    # Filler when querying KBs
+                self.frame_observer,      # Observe LLM output frames
+                self.tts,                 # Text-to-speech (ElevenLabs)
+                transport_output,         # Audio output (Daily.co)
+            ]
+        )
+        pipeline = Pipeline(processors)
+        pipeline.cost_trackers = {
+            "llm": self.llm,
+            "tts": self.tts,
+        }
         
         return pipeline
     
@@ -138,7 +200,8 @@ def build_pipeline(
     transport_input,
     transport_output,
     event_emitter: Optional[EventEmitter] = None,
-    system_prompt: str = "You are a helpful AI assistant for SpotFunnel."
+    system_prompt: str = "You are a helpful AI assistant for SpotFunnel.",
+    tenant_id: Optional[str] = None,
 ) -> Pipeline:
     """
     Convenience function to build audio pipeline.
@@ -154,6 +217,7 @@ def build_pipeline(
     """
     pipeline_builder = AudioPipeline(
         event_emitter=event_emitter,
-        system_prompt=system_prompt
+        system_prompt=system_prompt,
+        tenant_id=tenant_id,
     )
     return pipeline_builder.build_pipeline(transport_input, transport_output)

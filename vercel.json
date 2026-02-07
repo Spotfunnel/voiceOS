@@ -1,0 +1,40 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "name": "spotfunnel",
+  "builds": [
+    {
+      "src": "apps/public-site/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    },
+    {
+      "src": "apps/web/package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/dashboard(.*)",
+      "dest": "/apps/web$1"
+    },
+    {
+      "src": "/admin(.*)",
+      "dest": "/apps/web$1"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "/apps/web/api/$1"
+    },
+    {
+      "src": "/_next/(.*)",
+      "dest": "/apps/web/_next/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/apps/public-site/$1"
+    }
+  ]
+}

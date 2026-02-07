@@ -14,10 +14,16 @@ import pytz
 
 from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.audio.vad.silero import SileroVADAnalyzer
-from pipecat.transports.services.daily import DailyParams, DailyTransport
+try:
+    from pipecat.transports.services.daily import DailyParams, DailyTransport
+except Exception as exc:  # Daily SDK not available on Windows or missing deps.
+    DailyParams = None
+    DailyTransport = None
+    logger = logging.getLogger(__name__)
+    logger.warning("Daily transport disabled: %s", exc)
 
-from events.event_emitter import EventEmitter
-from transports.smart_turn_config import SmartTurnConfig
+from ..events.event_emitter import EventEmitter
+from .smart_turn_config import SmartTurnConfig
 
 logger = logging.getLogger(__name__)
 
@@ -60,25 +66,29 @@ class DailyTransportWrapper:
         else:
             logger.info("Smart Turn V3 disabled, using VAD-only turn detection")
 
-        params = DailyParams(
-            audio_in_enabled=True,
-            audio_out_enabled=True,
-            vad_enabled=True,
-            vad_analyzer=vad_analyzer,
-            turn_analyzer=smart_turn_analyzer,
-        )
-
-        # Create DailyTransport with explicit loop (fallback to stub on failure)
-        try:
-            self.transport = DailyTransport(
-                room_url=room_url,
-                token=token,
-                bot_name=bot_name,
-                params=params,
-            )
-        except RuntimeError as exc:
-            logger.warning("DailyTransport init failed, using stub: %s", exc)
+        if DailyParams is None or DailyTransport is None:
+            logger.warning("Daily SDK not available; Daily transport disabled.")
             self.transport = _StubDailyTransport(vad_analyzer=vad_analyzer)
+        else:
+            params = DailyParams(
+                audio_in_enabled=True,
+                audio_out_enabled=True,
+                vad_enabled=True,
+                vad_analyzer=vad_analyzer,
+                turn_analyzer=smart_turn_analyzer,
+            )
+
+            # Create DailyTransport with explicit loop (fallback to stub on failure)
+            try:
+                self.transport = DailyTransport(
+                    room_url=room_url,
+                    token=token,
+                    bot_name=bot_name,
+                    params=params,
+                )
+            except RuntimeError as exc:
+                logger.warning("DailyTransport init failed, using stub: %s", exc)
+                self.transport = _StubDailyTransport(vad_analyzer=vad_analyzer)
 
         # Expose vad_analyzer for tests/inspection
         self.transport.vad_analyzer = vad_analyzer

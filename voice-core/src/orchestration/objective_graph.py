@@ -21,12 +21,13 @@ class GraphNode:
     """Node in the objective graph."""
 
     id: str
-    type: str  # "sequence", "action", "terminal"
+    type: str  # "sequence", "action", "terminal", "transfer"
     primitives: Optional[List[str]] = None
     on_success: Optional[str] = None
     on_failure: Optional[str] = None
     action: Optional[str] = None
     message: Optional[str] = None
+    transfer_message: Optional[str] = None  # Message before transfer
 
 
 class ObjectiveGraph:
@@ -80,6 +81,7 @@ class ObjectiveGraph:
                 on_failure=node_def.get("on_failure"),
                 action=node_def.get("action"),
                 message=node_def.get("message"),
+                transfer_message=node_def.get("transfer_message"),
             )
             self.nodes[node.id] = node
 
@@ -96,9 +98,9 @@ class ObjectiveGraph:
             if node.type == "sequence" and not node.primitives:
                 raise ValueError(f"Sequence node {node.id} must define primitives")
 
-        # Ensure at least one terminal node exists
-        if not any(node.type == "terminal" for node in self.nodes.values()):
-            raise ValueError("Objective graph must define at least one terminal node")
+        # Ensure at least one terminal or transfer node exists
+        if not any(node.type in ("terminal", "transfer") for node in self.nodes.values()):
+            raise ValueError("Objective graph must define at least one terminal or transfer node")
 
         visited = set()
         rec_stack = set()
@@ -228,4 +230,8 @@ class ObjectiveGraph:
             self.apply_event(event)
 
     def is_terminal(self) -> bool:
-        return self.nodes[self.current_node_id].type == "terminal"
+        node_type = self.nodes[self.current_node_id].type
+        return node_type in ("terminal", "transfer")
+    
+    def is_transfer_node(self) -> bool:
+        return self.nodes[self.current_node_id].type == "transfer"

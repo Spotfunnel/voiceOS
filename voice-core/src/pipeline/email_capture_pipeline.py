@@ -9,7 +9,10 @@ import os
 from typing import Optional
 
 from pipecat.pipeline.pipeline import Pipeline
-from pipecat.services.deepgram import DeepgramSTTService
+try:
+    from pipecat.services.deepgram import DeepgramSTTService
+except Exception:  # pragma: no cover - optional dependency
+    DeepgramSTTService = None
 from pipecat.services.cartesia import CartesiaTTSService
 
 from ..events.event_emitter import EventEmitter
@@ -48,6 +51,8 @@ class EmailCapturePipeline:
         self.frame_observer_post = PipelineFrameObserver(event_emitter=event_emitter)
 
     def _create_stt_service(self) -> DeepgramSTTService:
+        if DeepgramSTTService is None:
+            raise RuntimeError("Deepgram STT dependency not available.")
         api_key = os.getenv("DEEPGRAM_API_KEY")
         if not api_key:
             raise ValueError("DEEPGRAM_API_KEY must be set in environment")
@@ -67,7 +72,7 @@ class EmailCapturePipeline:
 
         # Friendly female Australian receptionist voice
         # Using "79a125e8-cd45-4c13-8a67-188112f4dd22" - British Lady (warm, professional)
-        voice_id = os.getenv("CARTESIA_VOICE_ID", "79a125e8-cd45-4c13-8a67-188112f4dd22")
+        voice_id = os.getenv("CARTESIA_VOICE_ID", "f786b574-daa5-4673-aa0c-cbe3e8534c02")
         model = os.getenv("CARTESIA_MODEL", "sonic-3")
         
         return CartesiaTTSService(

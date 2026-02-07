@@ -1,0 +1,39 @@
+name: Boundary Enforcement
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  check-boundaries:
+    name: Check Import Boundaries
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Run boundary checks
+        run: npm run lint:boundaries
+      
+      - name: Report success
+        if: success()
+        run: echo "✅ Boundary enforcement passed"
+      
+      - name: Report failure
+        if: failure()
+        run: |
+          echo "❌ Boundary enforcement failed"
+          echo "See BOUNDARIES.md for import rules"
+          exit 1

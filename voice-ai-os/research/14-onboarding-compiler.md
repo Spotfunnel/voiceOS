@@ -167,7 +167,7 @@ Declarative Agent Manifest v1.0:
    - Version (for rollback, A/B testing)
 
 2. **LLM Configuration:**
-   - Model selection (GPT-4o, Claude, Gemini, per D-MS-002)
+   - Model selection (GPT-4.1, Claude, Gemini, per D-MS-002)
    - Temperature, top_p, max_tokens
    - System prompt / instructions
    - Fallback model (per D-MS-003)
@@ -240,7 +240,7 @@ Declarative Agent Manifest v1.0:
   "required": ["name", "model", "voice_id"],
   "properties": {
     "name": {"type": "string", "minLength": 1, "maxLength": 100},
-    "model": {"enum": ["gpt-4o", "claude-3-5-sonnet", "gemini-pro"]},
+    "model": {"enum": ["gpt-4.1", "claude-3-5-sonnet", "gemini-2.5-flash"]},
     "temperature": {"type": "number", "minimum": 0, "maximum": 2},
     "voice_id": {"type": "string", "pattern": "^[a-zA-Z0-9-]+$"}
   }

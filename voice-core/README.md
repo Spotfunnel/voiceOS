@@ -18,7 +18,7 @@ Voice Core is **Layer 1** of the three-layer architecture:
 
 ✅ **Audio Pipeline**
 - STT: Deepgram (optimized for Australian English)
-- LLM: OpenAI GPT-4o
+- LLM: Gemini 2.5 Flash (primary), OpenAI GPT-4.1 (backup)
 - TTS: ElevenLabs
 - Streaming frame-based architecture (non-blocking)
 
@@ -75,7 +75,7 @@ DEEPGRAM_API_KEY=your_deepgram_api_key
 
 # OpenAI LLM
 OPENAI_API_KEY=your_openai_api_key
-OPENAI_MODEL=gpt-4o
+OPENAI_MODEL=gpt-4.1
 
 # ElevenLabs TTS
 ELEVENLABS_API_KEY=your_elevenlabs_api_key
@@ -151,7 +151,7 @@ Expected behavior:
   can reach the `AsyncListenWebSocketClient` implementation that works with
   `nova-2` and the Australian mix.
 - **OpenAI**: `openai==1.12.0` keeps the `NOT_GIVEN` payload constant that Pipecat
-  expects when streaming GPT-4o audio responses.
+  expects when streaming GPT-4.1 audio responses.
 - **Structlog**: `structlog==24.1.0` satisfies Pipecat's structured logging hooks.
 - **Cartesia / ElevenLabs**: handled through the `pipecat-ai[elevens,...]` extras,
   but the Voice Core wrappers enforce the sonic-3 / eleven_turbo_v2 voices so

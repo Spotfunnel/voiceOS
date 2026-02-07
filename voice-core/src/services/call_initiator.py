@@ -25,7 +25,7 @@ async def start_bot_call(
     system_prompt: str = DEFAULT_SYSTEM_PROMPT,
 ) -> bool:
     """
-    Call the bot runner /start_call endpoint to begin a Twilio session.
+    Call the bot runner /start_call endpoint to begin a Telnyx session.
     """
     if not BOT_RUNNER_URL:
         logger.error("BOT_RUNNER_URL is not configured")
@@ -33,8 +33,8 @@ async def start_bot_call(
 
     request_payload = {
         "call_id": call_sid,
-        "transport": "twilio",
-        "transport_type": "twilio",
+        "transport": "telnyx",
+        "transport_type": "telnyx",
         "call_sid": call_sid,
         "tenant_id": tenant_id,
         "caller_phone": caller_phone,

@@ -17,7 +17,10 @@ import asyncio
 from typing import Optional, AsyncIterator
 import logging
 
-from pipecat.services.openai import OpenAILLMService as PipecatOpenAILLM
+try:
+    from pipecat.services.openai import OpenAILLMService as PipecatOpenAILLM
+except Exception:  # pragma: no cover - optional dependency
+    PipecatOpenAILLM = None
 from pipecat.frames.frames import Frame
 
 logger = logging.getLogger(__name__)
@@ -34,15 +37,17 @@ class OpenAILLMService:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = "gpt-4o",  # Use gpt-4o until gpt-4.1 is available
+        model: str = "gpt-4.1",
     ):
         """
         Initialize OpenAI LLM service.
         
         Args:
             api_key: OpenAI API key (defaults to OPENAI_API_KEY env var)
-            model: OpenAI model (defaults to gpt-4o, will use gpt-4.1 when available)
+            model: OpenAI model (defaults to gpt-4.1)
         """
+        if PipecatOpenAILLM is None:
+            raise RuntimeError("OpenAI LLM dependency not available.")
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         if not self.api_key:
             raise ValueError("OPENAI_API_KEY must be set in environment or passed as argument")
@@ -94,7 +99,7 @@ class OpenAILLMService:
         
         try:
             # Ensure underlying service is initialized inside an active event loop
-            if self.service.process_frame is self._default_process_frame:
+            if isinstance(self.service, _StubLLMService):
                 try:
                     loop = asyncio.get_running_loop()
                 except RuntimeError:
@@ -107,9 +112,20 @@ class OpenAILLMService:
                 )
                 self._default_process_frame = self.service.process_frame
 
-            # Call Pipecat service
-            async for output_frame in self.service.process_frame(frame, direction):
-                yield output_frame
+            # Call Pipecat service (handle async generator or coroutine)
+            result = self.service.process_frame(frame, direction)
+            if hasattr(result, "__aiter__"):
+                async for output_frame in result:
+                    yield output_frame
+            else:
+                output = await result
+                if output is None:
+                    pass
+                elif isinstance(output, list):
+                    for output_frame in output:
+                        yield output_frame
+                else:
+                    yield output
             
             # Reset failure count on success
             self.failure_count = 0
@@ -141,6 +157,30 @@ class OpenAILLMService:
     def is_circuit_open(self) -> bool:
         """Check if circuit breaker is open"""
         return self.circuit_open
+
+    def _ensure_service(self):
+        if isinstance(self.service, _StubLLMService):
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+
+            self.service = PipecatOpenAILLM(
+                api_key=self.api_key,
+                model=self.model,
+                loop=loop,
+            )
+            self._default_process_frame = self.service.process_frame
+
+    def register_function(self, function_name: str, handler):
+        """Register a function handler for OpenAI function calling."""
+        self._ensure_service()
+        self.service.register_function(function_name, handler)
+
+    def register_direct_function(self, handler):
+        """Register a direct function handler for OpenAI function calling."""
+        self._ensure_service()
+        self.service.register_direct_function(handler)
     
     @classmethod
     def from_env(cls):
@@ -149,9 +189,9 @@ class OpenAILLMService:
         
         Environment variables:
             OPENAI_API_KEY: OpenAI API key (required)
-            OPENAI_MODEL: OpenAI model (optional, defaults to gpt-4o)
+            OPENAI_MODEL: OpenAI model (optional, defaults to gpt-4.1)
         """
-        model = os.getenv("OPENAI_MODEL", "gpt-4o")
+        model = os.getenv("OPENAI_MODEL", "gpt-4.1")
         
         return cls(model=model)
 
