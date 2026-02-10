@@ -1,0 +1,32 @@
+Implement custom Telnyx WebSocket handler with 16kHz LINEAR16 support
+
+Major architectural change to bypass Pipecat's incomplete Telnyx transport:
+
+Core Changes:
+- Custom Telnyx WebSocket handler in bot_runner.py
+- Direct audio encoding/decoding (L16, PCMU, PCMA)
+- 16kHz LINEAR16 bidirectional audio
+- Inbound track filtering to prevent audio feedback
+- Custom audio input/output processors
+
+Files Modified:
+- voice-core/src/bot_runner.py: Custom WS handler, audio processors
+- voice-core/src/api/telnyx_webhook.py: L16 16kHz answer payload
+- voice-core/src/services/prompt_service.py: Layer 1+2 prompt architecture
+- voice-core/src/processors/: TranscriptionToTextProcessor greeting fix
+
+New Files:
+- voice-core/docs/SESSION_HANDOFF.md: Comprehensive handoff document
+- voice-core/docs/TELNYX_STREAMING_DIAGNOSTIC.md: Diagnostic plan
+- voice-ai-os/infrastructure/database/migrations/013_add_prompts_table.sql
+- voice-core/src/utils/phone_utils.py: Phone normalization utility
+- voice-core/tests/test_prompt_service.py: Prompt service tests
+
+Technical Details:
+- Removed FastAPIWebsocketTransport dependency
+- Removed TelnyxFrameSerializer dependency
+- Added TelnyxAudioInputProcessor and TelnyxAudioOutputProcessor
+- Audio flow: Telnyx WS -> decode -> resample -> STT -> LLM -> TTS -> encode -> Telnyx WS
+- Supports L16 (16kHz), PCMU (8kHz), PCMA (8kHz) with automatic resampling
+
+Status: Ready for testing with live Telnyx calls
