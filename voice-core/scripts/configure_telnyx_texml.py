@@ -5,7 +5,7 @@ import urllib.error
 
 
 ENV_PATH = r"C:\Users\leoge\OneDrive\Documents\AI Activity\Cursor\VoiceAIProduction\voice-core\.env"
-PHONE_NUMBER = "+61272542091"
+PHONE_NUMBER = "+61240675354"  # Updated to the correct phone number
 
 
 def _read_env_value(key: str) -> str | None:

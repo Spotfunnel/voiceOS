@@ -6,6 +6,7 @@ import asyncio
 import base64
 import hashlib
 import hmac
+import httpx
 import json
 import logging
 import os
@@ -15,7 +16,10 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from starlette.status import HTTP_400_BAD_REQUEST, HTTP_403_FORBIDDEN
 
-from ..services.call_history import get_recent_call_history
+# from ..services.call_history import get_recent_call_history  # Module not found
+def get_recent_call_history(tenant_id: str, phone: str, limit: int = 3):
+    """Stub for call history (module not found)"""
+    return []
 from ..services.phone_routing import normalize_phone_number
 from ..services.phone_routing import get_tenant_config, resolve_phone_to_tenant
 
@@ -45,6 +49,40 @@ def pop_telnyx_call_context(call_control_id: str) -> Optional[Dict[str, Any]]:
 def is_telnyx_outbound_call(call_control_id: str) -> bool:
     return call_control_id in TELNYX_OUTBOUND_CALLS
 
+
+async def send_telnyx_command(call_control_id: str, command: str, **params) -> Dict[str, Any]:
+    """
+    Send a command to Telnyx Call Control API.
+    
+    Args:
+        call_control_id: The call control ID
+        command: The command name (e.g., "answer", "streaming_start")
+        **params: Additional parameters for the command
+        
+    Returns:
+        API response as dict
+    """
+    url = f"{TELNYX_API_BASE}/calls/{call_control_id}/actions/{command}"
+    headers = {
+        "Authorization": f"Bearer {TELNYX_API_KEY}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            response = await client.post(url, headers=headers, json=params)
+            response.raise_for_status()
+            logger.info(f"Telnyx command '{command}' sent successfully for call {call_control_id}")
+            return response.json()
+        except httpx.HTTPStatusError as exc:
+            logger.error(f"Telnyx API error for command '{command}': {exc.response.status_code} - {exc.response.text}")
+            raise
+        except Exception as exc:
+            logger.error(f"Failed to send Telnyx command '{command}': {exc}")
+            raise
+
+
 DEFAULT_SYSTEM_PROMPT = os.getenv(
     "TELNYX_SYSTEM_PROMPT",
     "You are a helpful AI assistant for SpotFunnel."
@@ -52,6 +90,10 @@ DEFAULT_SYSTEM_PROMPT = os.getenv(
 
 # Ngrok URL for local development
 NGROK_URL = os.getenv("NGROK_URL", "https://antrorse-fluently-beulah.ngrok-free.dev")
+
+# Telnyx API configuration
+TELNYX_API_KEY = os.getenv("TELNYX_API_KEY", "")
+TELNYX_API_BASE = "https://api.telnyx.com/v2"
 
 
 @router.post("/telnyx/webhook")
@@ -98,9 +140,13 @@ async def telnyx_webhook(request: Request):
             response = {
                 "commands": [
                     {
-                        "command": "stream_start",
+                        "command": "streaming_start",  # FIXED: was "stream_start" (invalid)
                         "stream_url": stream_url,
-                        "stream_track": "both_tracks",
+                        "stream_track": "inbound_track",  # Only inbound audio (prevent feedback)
+                        "stream_codec": "L16",  # LINEAR16 16kHz
+                        "stream_bidirectional_mode": "rtp",
+                        "stream_bidirectional_codec": "L16",
+                        "stream_bidirectional_sampling_rate": 16000,
                     }
                 ]
             }
@@ -108,7 +154,11 @@ async def telnyx_webhook(request: Request):
         return JSONResponse({"status": "ok"})
     
     elif event_type == "call.hangup":
-        logger.info(f"Call hangup: {event_data.get('call_control_id')}")
+        call_control_id = event_data.get('call_control_id')
+        hangup_cause = event_data.get('hangup_cause', 'UNKNOWN')
+        hangup_source = event_data.get('hangup_source', 'UNKNOWN')
+        logger.info(f"Call hangup: {call_control_id} cause={hangup_cause} source={hangup_source}")
+        logger.debug(f"Full hangup event: {event_data}")
         return JSONResponse({"status": "ok"})
     
     elif event_type == "call.speak.ended":
@@ -194,27 +244,38 @@ async def handle_call_initiated(event_data: Dict[str, Any]) -> JSONResponse:
         },
     )
     
-    # Return commands to answer call and start media streaming (inbound only)
+    # Send commands to answer call and start media streaming (inbound only)
     stream_url = f"wss://{NGROK_URL.replace('https://', '').replace('http://', '')}/ws/media-stream/{call_control_id}"
+    
     if direction == "incoming":
-        response = {
-            "commands": [
-                {
-                    "command": "answer"
-                },
-                {
-                    "command": "stream_start",
-                    "stream_url": stream_url,
-                    "stream_track": "both_tracks"
-                }
-            ]
-        }
-    else:
-        response = {"commands": []}
+        # Send answer command first
+        try:
+            await send_telnyx_command(call_control_id, "answer")
+            logger.info(f"Answered call {call_control_id}")
+        except Exception as exc:
+            logger.error(f"Failed to answer call {call_control_id}: {exc}")
+            return JSONResponse({"status": "error", "message": "Failed to answer call"}, status_code=500)
+        
+        # Then start streaming
+        try:
+            await send_telnyx_command(
+                call_control_id,
+                "streaming_start",
+                stream_url=stream_url,
+                stream_track="inbound_track",  # Only inbound audio (prevent feedback)
+                stream_codec="L16",  # LINEAR16 16kHz
+                stream_bidirectional_mode="rtp",
+                stream_bidirectional_codec="L16",
+                stream_bidirectional_sampling_rate=16000,
+            )
+            logger.info(f"Started streaming for call {call_control_id} to {stream_url}")
+        except Exception as exc:
+            logger.error(f"Failed to start streaming for call {call_control_id}: {exc}")
+            # Call is already answered, so just log the error
     
-    logger.info(f"Returning Telnyx commands for call_control_id={call_control_id} stream_url={stream_url}")
+    logger.info(f"Webhook processed for call_control_id={call_control_id} stream_url={stream_url}")
     
-    return JSONResponse(response)
+    return JSONResponse({"status": "ok"})
 
 
 def _error_response(message: str) -> JSONResponse:

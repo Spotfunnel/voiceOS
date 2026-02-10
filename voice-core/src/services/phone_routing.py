@@ -81,7 +81,6 @@ def _load_tenant_config(tenant_id: str) -> Optional[Dict[str, Any]]:
             cur.execute(
                 """
                 SELECT
-                    oc.objective_graph,
                     t.locale,
                     t.metadata,
                     t.system_prompt,
@@ -89,8 +88,7 @@ def _load_tenant_config(tenant_id: str) -> Optional[Dict[str, Any]]:
                     t.agent_personality,
                     t.greeting_message
                 FROM tenants t
-                JOIN objective_configs oc ON t.tenant_id = oc.tenant_id
-                WHERE t.tenant_id = %s AND oc.active = true
+                WHERE t.tenant_id = %s
                 """,
                 (tenant_id,),
             )
@@ -102,7 +100,7 @@ def _load_tenant_config(tenant_id: str) -> Optional[Dict[str, Any]]:
             metadata = _deserialize_json_field(row.get("metadata")) or {}
             return {
                 "tenant_id": tenant_id,
-                "objective_graph": _deserialize_json_field(row.get("objective_graph")),
+                # objective_graph removed - using simple STT→LLM→TTS pipeline
                 "locale": row.get("locale") or "en-AU",
                 "service_catalog": metadata.get("service_catalog", []),
                 "faq_knowledge_base": metadata.get("faq_knowledge_base", []),

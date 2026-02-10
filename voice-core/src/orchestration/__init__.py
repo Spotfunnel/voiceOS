@@ -1,5 +1,7 @@
-"""Orchestration layer (Layer 2)."""
+"""Orchestration layer (Layer 2) - REMOVED.
 
-from .objective_graph import ObjectiveGraph, GraphNode
+Objective graph orchestration has been removed.
+Architecture is now simple: STT → LLM → TTS
+"""
 
-__all__ = ["ObjectiveGraph", "GraphNode"]
+__all__ = []

@@ -1,5 +1,9 @@
 """Telephony transports for Voice Core"""
 
-from .daily_transport import DailyTransportWrapper
+__all__ = []
 
-__all__ = ["DailyTransportWrapper"]
+try:
+    from .daily_transport import DailyTransportWrapper
+    __all__.append("DailyTransportWrapper")
+except ImportError:
+    pass

@@ -1,7 +1,13 @@
 """
 Tenant configuration API.
 
-Creates, reads, and updates tenant configs/templates for onboarding.
+⚠️  DEPRECATED: This API is tied to objective_graph which has been removed.
+The system now uses a simple STT→LLM→TTS pipeline with prompts from the database.
+
+This file remains for reference but the endpoints will fail if objective_configs 
+table doesn't exist or if called.
+
+TODO: Rewrite this API to work with the new simplified architecture.
 """
 
 from __future__ import annotations
@@ -45,7 +51,7 @@ class TenantConfig(BaseModel):
     agent_personality: str = "friendly"
     greeting_message: Optional[str] = None
     static_knowledge: Optional[str] = None
-    objective_graph: Dict[str, Any]
+    # objective_graph removed - using simple STT→LLM→TTS pipeline
     service_catalog: List[ServiceCatalogItem] = Field(default_factory=list)
     faq_knowledge_base: List[FAQItem] = Field(default_factory=list)
     created_at: Optional[datetime] = None

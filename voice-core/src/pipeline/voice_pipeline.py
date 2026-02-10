@@ -94,8 +94,8 @@ class VoicePipeline:
             channels=1,
         )
     
-    def _create_llm_service(self) -> OpenAILLMService:
-        """Create OpenAI LLM service (GPT-4o)"""
+    def _create_llm_service(self):
+        """Create multi-provider LLM service (Gemini 2.5 Flash primary, GPT-4.1 fallback)"""
         return MultiProviderLLM.from_env()
     
     def _create_tts_service(self):
@@ -181,7 +181,8 @@ def build_voice_pipeline(
     transport_input,
     transport_output,
     event_emitter: Optional[EventEmitter] = None,
-    system_prompt: str = "You are a helpful AI assistant for SpotFunnel."
+    system_prompt: str = "You are a helpful AI assistant for SpotFunnel.",
+    tenant_id: Optional[str] = None,
 ) -> Pipeline:
     """
     Convenience function to build voice pipeline.
@@ -191,6 +192,7 @@ def build_voice_pipeline(
         transport_output: Transport output
         event_emitter: Optional event emitter
         system_prompt: System prompt for LLM
+        tenant_id: Optional tenant ID (for future use)
         
     Returns:
         Configured Pipeline instance

@@ -73,3 +73,8 @@ async def websocket_status(websocket: WebSocket, tenant_id: str):
                 conn.close()
     except WebSocketDisconnect:
         pass
+
+
+async def broadcast_call_event(tenant_id: str, event_type: str, call_id: str, updates: dict = None):
+    """Stub for broadcasting call events (websocket connections not tracked)"""
+    pass
